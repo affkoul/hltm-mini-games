@@ -30,9 +30,9 @@ Create api/.env:
 NODE_ENV=development
 PORT=5362
 
-# If you use the proxy method below, you don't need CORS.
-# If you call the API directly from the browser, set:
-# CORS_ORIGIN=http://localhost:8080
+- If you use the proxy method below, you don't need CORS.
+- If you call the API directly from the browser, set:
+- CORS_ORIGIN=http://localhost:8080
 
 # Mongo (adjust if needed)
 MONGO=mongodb://localhost:27017/gamesdom
