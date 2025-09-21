@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>User Center</title>
+
+    <!-- Persist language BEFORE paint (same key as portal) -->
+    <script>
+        (function () {
+            var k = 'portal.lang';
+            var m = (location.search.match(/[?&]lang=(en|fr|zh)\b/) || [])[1];
+            var saved = localStorage.getItem(k);
+            var lang = m || saved || 'en';
+            document.documentElement.setAttribute('lang', lang);
+            localStorage.setItem(k, lang);
+        })();
+    </script>
+
+    <link rel="stylesheet" href="../platform/platform.css">
+    <style>
+        body {
+            font-family: system-ui, Arial, sans-serif;
+            background: #f5f5f5;
+            padding: 16px;
+        }
+
+        .wrap {
+            max-width: 940px;
+            margin: 0 auto;
+            display: grid;
+            gap: 16px;
+        }
+
+        .section {
+            background: #fff;
+            border-radius: 10px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .06);
+        }
+
+        .grid {
+            display: grid;
+            gap: 12px;
+        }
+
+        @media(min-width:860px) {
+            .grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .ticket {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        canvas {
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 6px;
+        }
+
+        .small {
+            color: #666;
+            font-size: 12px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+    </style>
+
+    <script src="../platform/platform.js"></script>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="section">
+            <div class="topbar">
+                <div class="gd-row">
+                    <div class="gd-chip">⭐ <span id="i18nPoints">Points</span>: <b id="p"></b></div>
+                    <div class="gd-chip">📈 <span id="i18nLevel">Level</span>: <b id="lv"></b></div>
+                    <div class="gd-chip">🔥 <span id="i18nStreak">Streak</span>: <b id="st"></b></div>
+                </div>
+                <div class="gd-row">
+                    <a class="gd-btn" id="portalBtn" href="../index.html">🏠 <span id="i18nPortal">Portal</span></a>
+                    <button class="gd-btn" id="gdLangBtn" aria-label="Change language">EN / FR / 中文</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="gd-title" id="i18nPrizes">🎟 Prizes</div>
+            <div id="tickets" class="grid"></div>
+        </div>
+
+        <div class="section">
+            <div class="gd-title" id="i18nPaysTitle">💳 Payments (recent)</div>
+            <div id="pays" class="grid"></div>
+            <div class="small" id="i18nPaysNote">Note: Payments initiated offline sync automatically when online.</div>
+        </div>
+    </div>
+
+    <script>
+        // --- i18n strings ---
+        (function () {
+            const I18N = {
+                en: {
+                    points: 'Points', level: 'Level', streak: 'Streak', portal: 'Portal',
+                    prizes: '🎟 Prizes',
+                    noPrizes: 'No prizes yet — try the daily 🎡 spin!',
+                    code: 'Code:',
+                    paymentsTitle: '💳 Payments (recent)',
+                    paymentsNote: 'Note: Payments initiated offline sync automatically when online.',
+                    noPayments: 'No payments yet.',
+                    amt: 'Amt:',
+                    status: 'Status:',
+                    ref: 'Ref:'
+                },
+                fr: {
+                    points: 'Points', level: 'Niv', streak: 'Série', portal: 'Portail',
+                    prizes: '🎟 Récompenses',
+                    noPrizes: 'Pas encore de récompenses — essayez la 🎡 quotidienne !',
+                    code: 'Code :',
+                    paymentsTitle: '💳 Paiements (récents)',
+                    paymentsNote: 'Remarque : les paiements initiés hors ligne se synchronisent automatiquement en ligne.',
+                    noPayments: 'Aucun paiement pour le moment.',
+                    amt: 'Montant :',
+                    status: 'Statut :',
+                    ref: 'Réf :'
+                },
+                zh: {
+                    points: '积分', level: '等级', streak: '连登天数', portal: '主页',
+                    prizes: '🎟 奖品',
+                    noPrizes: '还没有奖品 — 试试每日🎡 抽奖！',
+                    code: '代码：',
+                    paymentsTitle: '💳 最近支付',
+                    paymentsNote: '注意：离线发起的支付会在联网后自动同步。',
+                    noPayments: '暂无支付记录。',
+                    amt: '金额：',
+                    status: '状态：',
+                    ref: '参考号：'
+                }
+            };
+
+            const lang = () => document.documentElement.getAttribute('lang') || 'en';
+            const t = k => (I18N[lang()] && I18N[lang()][k]) || I18N.en[k] || k;
+            window.__ucTxt = t;
+
+            function hydrateStatic() {
+                const set = (id, key) => { const el = document.getElementById(id); if (el) el.textContent = t(key); };
+                set('i18nPoints', 'points');
+                set('i18nLevel', 'level');
+                set('i18nStreak', 'streak');
+                set('i18nPortal', 'portal');
+                set('i18nPrizes', 'prizes');
+                set('i18nPaysTitle', 'paymentsTitle');
+                set('i18nPaysNote', 'paymentsNote');
+            }
+
+            // language toggle
+            function cycleLang() {
+                const order = ['en', 'fr', 'zh'];
+                const cur = lang();
+                const next = order[(order.indexOf(cur) + 1) % order.length];
+                localStorage.setItem('portal.lang', next);
+                document.documentElement.setAttribute('lang', next);
+                document.dispatchEvent(new Event('gd:lang'));
+            }
+            document.addEventListener('DOMContentLoaded', () => {
+                const btn = document.getElementById('gdLangBtn');
+                if (btn && !btn.__bound) { btn.addEventListener('click', cycleLang); btn.__bound = true; }
+            });
+
+            // rehydrate labels & rerender lists on lang change
+            document.addEventListener('gd:lang', () => {
+                hydrateStatic();
+                window.renderTickets && window.renderTickets(true);
+                window.renderPays && window.renderPays(true);
+            });
+
+            // initial
+            hydrateStatic();
+
+            // fallback: watch <html lang> direct changes
+            new MutationObserver((m) => {
+                if (m[0] && m[0].attributeName === 'lang') document.dispatchEvent(new Event('gd:lang'));
+            }).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+        })();
+    </script>
+
+    <script>
+        // --- data renderers (localized) ---
+        const P = PlatformSDK;
+        document.getElementById('p').textContent = P.getPoints();
+        document.getElementById('lv').textContent = P.getLevel();
+        document.getElementById('st').textContent = P.getStreak();
+
+        const statusMap = {
+            en: { pending: 'pending', succeeded: 'succeeded', failed: 'failed' },
+            fr: { pending: 'en attente', succeeded: 'réussi', failed: 'échoué' },
+            zh: { pending: '处理中', succeeded: '成功', failed: '失败' }
+        };
+        const curLang = () => document.documentElement.getAttribute('lang') || 'en';
+
+        window.renderTickets = function (fromLangEvent) {
+            const box = document.getElementById('tickets'); box.innerHTML = '';
+            const arr = P.getTickets();
+            if (!arr.length) {
+                box.innerHTML = `<div class="small">${(__ucTxt && __ucTxt('noPrizes')) || 'No prizes yet — try the daily 🎡 spin!'}</div>`;
+                return;
+            }
+            const locale = curLang();
+            arr.forEach(t => {
+                const div = document.createElement('div'); div.className = 'ticket';
+                div.innerHTML = `
+          <div class="gd-col" style="min-width:220px">
+            <div><b>${t.label}</b> <span class="gd-badge">${t.partnerId}</span></div>
+            <div class="small">${new Date(t.createdAt).toLocaleString(locale)}</div>
+            <div class="small">${(__ucTxt && __ucTxt('code')) || 'Code:'} <b>${t.code}</b></div>
+          </div>
+        `;
+                const canv = document.createElement('canvas');
+                canv.width = 300; canv.height = 110;
+                PlatformSDK.renderCode39(t.code, canv, { height: 80 });
+                div.appendChild(canv);
+                box.appendChild(div);
+            });
+        };
+
+        window.renderPays = function (fromLangEvent) {
+            const box = document.getElementById('pays'); box.innerHTML = '';
+            const arr = P.getPayments();
+            if (!arr.length) {
+                box.innerHTML = `<div class="small">${(__ucTxt && __ucTxt('noPayments')) || 'No payments yet.'}</div>`;
+                return;
+            }
+            const locale = curLang();
+            const sm = statusMap[locale] || statusMap.en;
+            arr.slice(0, 6).forEach(pm => {
+                const prettyStatus = sm[pm.status] || pm.status;
+                const d = document.createElement('div'); d.className = 'gd-card';
+                d.innerHTML = `<div class="gd-row">
+            <div class="gd-chip">${pm.provider}</div>
+            <div class="gd-chip">${(__ucTxt && __ucTxt('amt')) || 'Amt:'} ${pm.amount}</div>
+            <div class="gd-chip ${pm.status === 'pending' ? '' : 'gd-badge'}">${(__ucTxt && __ucTxt('status')) || 'Status:'} ${prettyStatus}</div>
+          </div>
+          <div class="small">
+            ${(__ucTxt && __ucTxt('ref')) || 'Ref:'} ${pm.ref || '-'} | ${new Date(pm.at).toLocaleString(locale)}
+          </div>`;
+                box.appendChild(d);
+            });
+        };
+
+        // initial render + live updates
+        renderTickets(); renderPays();
+        document.addEventListener('gd:tickets', () => renderTickets());
+    </script>
+</body>
+
+</html>

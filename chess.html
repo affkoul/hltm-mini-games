@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="./chess-favicon.ico">
+    <title>Chess</title>
+    <link rel="stylesheet" href="platform/platform.css">
+    <script src="platform/platform.js"></script>
+    <!-- Persist language BEFORE paint (same as portal) -->
+    <!-- Persist language BEFORE paint -->
+    <script>
+        (function () {
+            var KEY = 'portal.lang';
+            // allow ?lang=en|fr|zh to override (useful for direct links/bookmarks)
+            var q = (location.search.match(/[?&]lang=(en|fr|zh)\b/) || [])[1];
+            var saved = localStorage.getItem(KEY);
+            var lang = q || saved || 'en';
+            document.documentElement.setAttribute('lang', lang);
+            localStorage.setItem(KEY, lang);
+
+            // Optional: if the portal is open in another tab and user switches language,
+            // this page updates automatically:
+            window.addEventListener('storage', function (e) {
+                if (e.key === KEY && e.newValue && e.newValue !== document.documentElement.lang) {
+                    document.documentElement.setAttribute('lang', e.newValue);
+                }
+            });
+        })();
+    </script>
+    <link rel="stylesheet" href="chess_assets/styles.css">
+    <style>
+        /* Hide all language variants by default (strong + !important) */
+        html body [lang] {
+            display: none !important;
+        }
+
+        /* Show only the active page language */
+        html[lang="en"] body [lang="en"] {
+            display: inline !important;
+        }
+
+        html[lang="fr"] body [lang="fr"] {
+            display: inline !important;
+        }
+
+        html[lang="zh"] body [lang="zh"] {
+            display: inline !important;
+        }
+
+        /* GLOBAL i18n (only inside .i18n) */
+        .i18n [lang] {
+            display: none !important;
+        }
+
+        html[lang="en"] .i18n [lang="en"] {
+            display: inline !important;
+        }
+
+        html[lang="fr"] .i18n [lang="fr"] {
+            display: inline !important;
+        }
+
+        html[lang="zh"] .i18n [lang="zh"] {
+            display: inline !important;
+        }
+
+        #sound-button {
+            min-width: 140px
+        }
+
+        #sound-button[aria-pressed="true"] {
+            opacity: .75
+        }
+    </style>
+
+</head>
+
+<body>
+    <div class="game-layout">
+        <div class="probability-bar">
+            <div class="ai-section" id="ai-probability" style="height: 50%;">
+                AI 50%
+            </div>
+            <div class="user-section" id="user-probability" style="height: 50%;">
+                <span lang="en">YOU 50%</span>
+                <span lang="fr">TOI 50%</span>
+                <span lang="zh">您 50%</span>
+            </div>
+        </div>
+
+        <div class="chess-area">
+            <div id="message-div"></div>
+
+            <div class="coordinates-horizontal">
+                <span>a</span><span>b</span><span>c</span><span>d</span>
+                <span>e</span><span>f</span><span>g</span><span>h</span>
+            </div>
+
+            <div class="board-with-vertical-coords">
+                <div class="coordinates-vertical">
+                    <span>8</span><span>7</span><span>6</span><span>5</span>
+                    <span>4</span><span>3</span><span>2</span><span>1</span>
+                </div>
+
+                <!-- board -->
+                <div class="container" id="chess-container">
+                    <div id="row-8" class="row">
+                        <div class="cell" data-row="0" data-col="0"><span class="black-piece">♜</span></div>
+                        <div class="cell" data-row="0" data-col="1"><span class="black-piece">♞</span></div>
+                        <div class="cell" data-row="0" data-col="2"><span class="black-piece">♝</span></div>
+                        <div class="cell" data-row="0" data-col="3"><span class="black-piece">♛</span></div>
+                        <div class="cell" data-row="0" data-col="4"><span class="black-piece">♚</span></div>
+                        <div class="cell" data-row="0" data-col="5"><span class="black-piece">♝</span></div>
+                        <div class="cell" data-row="0" data-col="6"><span class="black-piece">♞</span></div>
+                        <div class="cell" data-row="0" data-col="7"><span class="black-piece">♜</span></div>
+                    </div>
+                    <div id="row-7" class="row">
+                        <div class="cell" data-row="1" data-col="0"><span class="black-piece">♟</span></div>
+                        <div class="cell" data-row="1" data-col="1"><span class="black-piece">♟</span></div>
+                        <div class="cell" data-row="1" data-col="2"><span class="black-piece">♟</span></div>
+                        <div class="cell" data-row="1" data-col="3"><span class="black-piece">♟</span></div>
+                        <div class="cell" data-row="1" data-col="4"><span class="black-piece">♟</span></div>
+                        <div class="cell" data-row="1" data-col="5"><span class="black-piece">♟</span></div>
+                        <div class="cell" data-row="1" data-col="6"><span class="black-piece">♟</span></div>
+                        <div class="cell" data-row="1" data-col="7"><span class="black-piece">♟</span></div>
+                    </div>
+                    <div id="row-6" class="row">
+                        <div class="cell" data-row="2" data-col="0"></div>
+                        <div class="cell" data-row="2" data-col="1"></div>
+                        <div class="cell" data-row="2" data-col="2"></div>
+                        <div class="cell" data-row="2" data-col="3"></div>
+                        <div class="cell" data-row="2" data-col="4"></div>
+                        <div class="cell" data-row="2" data-col="5"></div>
+                        <div class="cell" data-row="2" data-col="6"></div>
+                        <div class="cell" data-row="2" data-col="7"></div>
+                    </div>
+                    <div id="row-5" class="row">
+                        <div class="cell" data-row="3" data-col="0"></div>
+                        <div class="cell" data-row="3" data-col="1"></div>
+                        <div class="cell" data-row="3" data-col="2"></div>
+                        <div class="cell" data-row="3" data-col="3"></div>
+                        <div class="cell" data-row="3" data-col="4"></div>
+                        <div class="cell" data-row="3" data-col="5"></div>
+                        <div class="cell" data-row="3" data-col="6"></div>
+                        <div class="cell" data-row="3" data-col="7"></div>
+                    </div>
+                    <div id="row-4" class="row">
+                        <div class="cell" data-row="4" data-col="0"></div>
+                        <div class="cell" data-row="4" data-col="1"></div>
+                        <div class="cell" data-row="4" data-col="2"></div>
+                        <div class="cell" data-row="4" data-col="3"></div>
+                        <div class="cell" data-row="4" data-col="4"></div>
+                        <div class="cell" data-row="4" data-col="5"></div>
+                        <div class="cell" data-row="4" data-col="6"></div>
+                        <div class="cell" data-row="4" data-col="7"></div>
+                    </div>
+                    <div id="row-3" class="row">
+                        <div class="cell" data-row="5" data-col="0"></div>
+                        <div class="cell" data-row="5" data-col="1"></div>
+                        <div class="cell" data-row="5" data-col="2"></div>
+                        <div class="cell" data-row="5" data-col="3"></div>
+                        <div class="cell" data-row="5" data-col="4"></div>
+                        <div class="cell" data-row="5" data-col="5"></div>
+                        <div class="cell" data-row="5" data-col="6"></div>
+                        <div class="cell" data-row="5" data-col="7"></div>
+                    </div>
+                    <div id="row-2" class="row">
+                        <div class="cell" data-row="6" data-col="0"><span class="white-piece">♙</span></div>
+                        <div class="cell" data-row="6" data-col="1"><span class="white-piece">♙</span></div>
+                        <div class="cell" data-row="6" data-col="2"><span class="white-piece">♙</span></div>
+                        <div class="cell" data-row="6" data-col="3"><span class="white-piece">♙</span></div>
+                        <div class="cell" data-row="6" data-col="4"><span class="white-piece">♙</span></div>
+                        <div class="cell" data-row="6" data-col="5"><span class="white-piece">♙</span></div>
+                        <div class="cell" data-row="6" data-col="6"><span class="white-piece">♙</span></div>
+                        <div class="cell" data-row="6" data-col="7"><span class="white-piece">♙</span></div>
+                    </div>
+                    <div id="row-1" class="row">
+                        <div class="cell" data-row="7" data-col="0"><span class="white-piece">♖</span></div>
+                        <div class="cell" data-row="7" data-col="1"><span class="white-piece">♘</span></div>
+                        <div class="cell" data-row="7" data-col="2"><span class="white-piece">♗</span></div>
+                        <div class="cell" data-row="7" data-col="3"><span class="white-piece">♕</span></div>
+                        <div class="cell" data-row="7" data-col="4"><span class="white-piece">♔</span></div>
+                        <div class="cell" data-row="7" data-col="5"><span class="white-piece">♗</span></div>
+                        <div class="cell" data-row="7" data-col="6"><span class="white-piece">♘</span></div>
+                        <div class="cell" data-row="7" data-col="7"><span class="white-piece">♖</span></div>
+                    </div>
+                </div>
+
+                <div class="coordinates-vertical">
+                    <span>8</span><span>7</span><span>6</span><span>5</span>
+                    <span>4</span><span>3</span><span>2</span><span>1</span>
+                </div>
+            </div>
+
+            <div class="coordinates-horizontal">
+                <span>a</span><span>b</span><span>c</span><span>d</span>
+                <span>e</span><span>f</span><span>g</span><span>h</span>
+            </div>
+        </div>
+        <div class="side-panel">
+            <div class="status-display" id="game-status"></div>
+
+            <div class="game-info">
+                <div class="info-row">
+                    <span lang="en">Turn:</span>
+                    <span lang="fr">Tour:</span>
+                    <span lang="zh">回合:</span>
+                    <span id="turn-counter">1</span>
+                </div>
+                <div class="info-row">
+                    <span lang="en">Captured:</span>
+                    <span lang="fr">Pièces capturées:</span>
+                    <span lang="zh">已吃子:</span>
+                    <span id="captured-display">
+                        <span lang="en">None</span>
+                        <span lang="fr">Aucun</span>
+                        <span lang="zh">无</span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="controls-section">
+                <button class="btn" id="hint-button">
+                    <span lang="en">💡 Get Hint</span>
+                    <span lang="fr">💡 Indice</span>
+                    <span lang="zh">💡 提示</span>
+                </button>
+                <button class="btn" id="new-game-button">
+                    <span lang="en">🔄 New Game</span>
+                    <span lang="fr">🔄 Nouvelle partie</span>
+                    <span lang="zh">🔄 新游戏</span>
+                </button>
+                <button class="btn" id="sound-button"></button>
+            </div>
+
+            <div class="moves-history">
+                <div class="moves-title">
+                    <span lang="en">Game History</span>
+                    <span lang="fr">Historique des coups</span>
+                    <span lang="zh">对局记录</span>
+                </div>
+                <div class="moves-columns">
+                    <div class="move-column">
+                        <div class="column-header">
+                            <span lang="en">White</span>
+                            <span lang="fr">Blanc</span>
+                            <span lang="zh">白方</span>
+                        </div>
+                        <div class="move-list" id="white-moves-list"></div>
+                    </div>
+                    <div class="move-column">
+                        <div class="column-header">
+                            <span lang="en">Black</span>
+                            <span lang="fr">Noir</span>
+                            <span lang="zh">黑方</span>
+                        </div>
+                        <div class="move-list" id="black-moves-list"></div>
+                    </div>
+                </div>
+                <button class="btn" id="copy-history-button">
+                    <span lang="en">📑 Copy History</span>
+                    <span lang="fr">📑 Copier l’historique</span>
+                    <span lang="zh">📑 复制历史</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    <script>
+        /* -------------------- SndChess (no-file WebAudio SFX) -------------------- */
+        const SndChess = (() => {
+            let ctx = null, inited = false;
+            let muted = JSON.parse(localStorage.getItem('chess.muted') || 'false');
+
+            /* ---------- setup / helpers ---------- */
+            function ensure() { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+            function unlock() { ensure(); if (ctx && ctx.state === 'suspended') ctx.resume(); }
+
+            function gainEnv(src, t0, dur = 0.12, a = 0.01, peak = 0.08) {
+                const g = ctx.createGain();
+                g.gain.setValueAtTime(0, t0);
+                g.gain.linearRampToValueAtTime(peak, t0 + a);
+                g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+                src.connect(g); g.connect(ctx.destination);
+                return g;
+            }
+            function blip(freq = 440, dur = 0.08, type = 'triangle', vol = 0.07) {
+                if (muted) return; ensure(); if (!ctx) return;
+                const t = ctx.currentTime, o = ctx.createOscillator();
+                o.type = type; o.frequency.setValueAtTime(freq, t);
+                gainEnv(o, t, dur, 0.01, vol); o.start(t); o.stop(t + dur);
+            }
+            function sweep(f0 = 800, f1 = 220, dur = 0.20, type = 'sawtooth', vol = 0.07) {
+                if (muted) return; ensure(); if (!ctx) return;
+                const t = ctx.currentTime, o = ctx.createOscillator();
+                o.type = type; o.frequency.setValueAtTime(f0, t);
+                o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + dur);
+                gainEnv(o, t, dur, 0.01, vol); o.start(t); o.stop(t + dur);
+            }
+            function noise(dur = 0.06, vol = 0.05) {
+                if (muted) return; ensure(); if (!ctx) return;
+                const sr = ctx.sampleRate, len = Math.max(1, Math.floor(sr * dur));
+                const buf = ctx.createBuffer(1, len, sr), d = buf.getChannelData(0);
+                for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+                const src = ctx.createBufferSource(); src.buffer = buf;
+                gainEnv(src, ctx.currentTime, dur, 0.005, vol); src.start();
+            }
+            function chord(freqs, step = 80, type = 'triangle', vol = 0.07) {
+                if (muted) return; freqs.forEach((f, i) => setTimeout(() => blip(f, 0.12, type, vol), i * step));
+            }
+
+            /* ---------- musical map (piece → pitch) ---------- */
+            const PITCH = { P: 330, N: 392, B: 440, R: 494, Q: 587, K: 659 };
+            function pitchFor(piece = 'P', color = 'w') {
+                const base = PITCH[(piece || 'P').toUpperCase()] || 370;
+                return color === 'b' ? base - 20 : base;  // tiny color tint
+            }
+
+            /* ---------- public “play” API ---------- */
+            const play = {
+                select({ piece = 'P', color = 'w' } = {}) { blip(pitchFor(piece, color), 0.06, 'sine', 0.05); },
+                move({ piece = 'P', color = 'w', from, to } = {}) {
+                    const f = pitchFor(piece, color);
+                    blip(f, 0.07, 'triangle', 0.06);
+                    // optional second tick if the move traveled far (rough heuristic)
+                    if (from && to) {
+                        const dx = Math.abs((from.charCodeAt(0) || 0) - (to.charCodeAt(0) || 0));
+                        const dy = Math.abs((parseInt(from[1]) || 0) - (parseInt(to[1]) || 0));
+                        if (dx + dy >= 3) setTimeout(() => blip(f + 40, 0.06, 'triangle', 0.05), 70);
+                    }
+                },
+                capture({ attacker = 'P', color = 'w' } = {}) {
+                    blip(pitchFor(attacker, color) - 40, 0.07, 'square', 0.07);
+                    noise(0.05, 0.05);
+                },
+                check({ to = 'w' } = {}) { chord([740, 620], 70, 'square', 0.06); },
+                mate({ winner = 'w' } = {}) { chord([523, 659, 784, 988], 90, 'triangle', 0.07); },
+                castle({ side = 'king' } = {}) {
+                    // two-step thunk
+                    blip(420, 0.07, 'triangle', 0.06);
+                    setTimeout(() => blip(360, 0.09, 'triangle', 0.06), 70);
+                },
+                promote({ to = 'Q', color = 'w' } = {}) {
+                    const f = pitchFor(to, color);
+                    chord([f - 80, f, f + 120], 65, 'triangle', 0.07);
+                },
+                illegal() { sweep(280, 140, 0.18, 'sawtooth', 0.08); },
+                hint() { chord([660, 880], 80, 'sine', 0.06); },
+                new() { chord([520, 660], 90, 'triangle', 0.07); }
+            };
+
+            /* ---------- toggle button (i18n) ---------- */
+            function updateBtn() {
+                const B = document.getElementById('sound-button'); if (!B) return;
+                const lang = document.documentElement.getAttribute('lang') || 'en';
+                const L = {
+                    en: ['Sound: On', 'Sound: Off'],
+                    fr: ['Son : Activé', 'Son : Coupé'],
+                    zh: ['声音：开', '声音：关']
+                }[lang] || ['Sound: On', 'Sound: Off'];
+                B.textContent = muted ? L[1] : L[0];
+                B.setAttribute('aria-pressed', muted ? 'true' : 'false');
+            }
+            function toggle() { muted = !muted; localStorage.setItem('chess.muted', JSON.stringify(muted)); updateBtn(); }
+            function init() {
+                if (inited) return; inited = true; updateBtn();
+                // unlock audio on first user gesture (mobile-safe)
+                ['keydown', 'mousedown', 'touchstart'].forEach(ev => window.addEventListener(ev, unlock, { once: true, passive: true }));
+            }
+
+            /* ---------- optional: listen for DOM events if you emit them ---------- */
+            function bindDom() {
+                const on = (type, fn) => document.addEventListener(type, e => fn(e.detail || {}));
+                on('chess:select', play.select);
+                on('chess:move', play.move);
+                on('chess:capture', play.capture);
+                on('chess:check', play.check);
+                on('chess:mate', play.mate);
+                on('chess:castle', play.castle);
+                on('chess:promote', play.promote);
+                on('chess:illegal', play.illegal);
+                on('chess:hint', play.hint);
+                on('chess:new', play.new);
+            }
+
+            return { play, init, toggle, bindDom, updateBtn };
+        })();
+    </script>
+    <script src="chess-script.js"></script>
+    <script>
+        document.getElementById('sound-button').onclick = () => SndChess.toggle();
+        SndChess.init();
+        SndChess.bindDom(); // optional: enables the DOM-event approach shown below
+        document.dispatchEvent(new CustomEvent('chess:move', { detail: { piece: 'N', color: 'w', from: 'g1', to: 'f3' } }));
+        document.dispatchEvent(new CustomEvent('chess:capture', { detail: { attacker: 'P', color: 'b' } }));
+        document.dispatchEvent(new CustomEvent('chess:check', { detail: { to: 'w' } }));
+        document.dispatchEvent(new CustomEvent('chess:mate', { detail: { winner: 'b' } }));
+        document.dispatchEvent(new CustomEvent('chess:castle', { detail: { side: 'queen' } }));
+        document.dispatchEvent(new CustomEvent('chess:promote', { detail: { to: 'Q', color: 'w' } }));
+        document.dispatchEvent(new CustomEvent('chess:illegal'));
+        document.dispatchEvent(new CustomEvent('chess:new'));
+        document.dispatchEvent(new CustomEvent('chess:hint'));
+    </script>
+</body>
+
+</html>

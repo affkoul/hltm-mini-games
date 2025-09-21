@@ -1,25 +1,158 @@
 <!DOCTYPE html>
 <html lang="zh">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HTML5 Games Collection | HTML5 小游戏合集</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="./gamesdom-favicon.ico">
+    <title>Gamesdom !!!</title>
+
+    <!-- Persist language BEFORE paint -->
+    <script>
+        (function () {
+            var k = 'portal.lang';
+            var m = (location.search.match(/[?&]lang=(en|fr|zh)\b/) || [])[1];
+            var saved = localStorage.getItem(k);
+            var lang = m || saved || 'en';  // default EN; change to 'fr' or 'zh' if you prefer
+            document.documentElement.setAttribute('lang', lang);
+            localStorage.setItem(k, lang);
+        })();
+    </script>
+    <script>
+        /* === Theme bootstrap: set BEFORE paint ===
+           Modes: 'auto' (by local time), 'light', 'dark' */
+        (function () {
+            var KEY = 'portal.theme.mode';                 // 'auto' | 'light' | 'dark'
+            var LIGHT_HOUR = 7, DARK_HOUR = 19;           // 07:00–19:00 = light; else dark
+
+            function chooseByClock(d) {
+                var h = (d || new Date()).getHours();
+                return (h >= LIGHT_HOUR && h < DARK_HOUR) ? 'light' : 'dark';
+            }
+            function apply(mode, reason) {
+                var html = document.documentElement;
+                var finalTheme = (mode === 'auto') ? chooseByClock() : mode;
+                html.setAttribute('data-theme-mode', mode);
+                html.setAttribute('data-theme', finalTheme); // 'light' | 'dark'
+                // Let the rest of the app know
+                document.dispatchEvent(new CustomEvent('gd:theme', { detail: { mode, theme: finalTheme, reason } }));
+            }
+            function scheduleNextTick() {
+                var now = new Date();
+                var next = new Date(now);
+                var isLightNow = chooseByClock(now) === 'light';
+                // next boundary: 19:00 if currently light, else 07:00 tomorrow
+                next.setHours(isLightNow ? DARK_HOUR : LIGHT_HOUR, 0, 0, 0);
+                if (next <= now) next.setDate(next.getDate() + 1);
+                var ms = next - now;
+                window.__themeTimer && clearTimeout(window.__themeTimer);
+                window.__themeTimer = setTimeout(function () {
+                    if ((localStorage.getItem(KEY) || 'auto') === 'auto') { apply('auto', 'clock-tick'); scheduleNextTick(); }
+                }, ms);
+            }
+
+            var mode = localStorage.getItem(KEY) || 'auto';
+            apply(mode, 'bootstrap');
+            if (mode === 'auto') scheduleNextTick();
+
+            // Re-evaluate when user returns to tab
+            document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState === 'visible' && (localStorage.getItem(KEY) || 'auto') === 'auto') {
+                    apply('auto', 'tab-visible');
+                }
+            });
+
+            // expose helpers
+            window.PortalTheme = {
+                setMode: function (m) {
+                    localStorage.setItem(KEY, m);
+                    apply(m, 'user-set');
+                    if (m === 'auto') scheduleNextTick(); else { clearTimeout(window.__themeTimer); }
+                },
+                getMode: function () { return localStorage.getItem(KEY) || 'auto'; }
+            };
+        })();
+    </script>
+
     <style>
+        /* === Theme tokens === */
+        :root {
+            --bg: #f0f0f0;
+            --fg: #222;
+            --card-bg: #fff;
+            --muted: #666;
+            --chip-bg: #f7f7f7;
+            --chip-border: #e9e9e9;
+            --elev-shadow: 0 8px 20px rgba(0, 0, 0, .08);
+            --btn-bg: #4CAF50;
+            --btn-fg: #fff;
+            --btn-bg-hover: #45a049;
+            --bar-bg: #fff;
+            --bar-border: transparent;
+            --grid-line: rgba(0, 0, 0, .06);
+        }
+
+        html[data-theme="dark"] {
+            --bg: #0f1216;
+            --fg: #e9edf3;
+            --card-bg: #151a21;
+            --muted: #a7b0bd;
+            --chip-bg: #171d24;
+            --chip-border: #232a33;
+            --elev-shadow: 0 8px 20px rgba(0, 0, 0, .5);
+            --btn-bg: #3fbf6b;
+            --btn-fg: #0b1416;
+            --btn-bg-hover: #35a75c;
+            --bar-bg: #131920;
+            --bar-border: #1b232d;
+            --grid-line: rgba(255, 255, 255, .07);
+        }
+
+        .gd-bar {
+            background: var(--bar-bg);
+            border: 1px solid var(--bar-border);
+            box-shadow: var(--elev-shadow);
+        }
+
+        .gd-chip {
+            background: var(--chip-bg);
+            border: 1px solid var(--chip-border);
+            color: var(--fg);
+        }
+
+        .gd-btn {
+            background: var(--btn-bg);
+            color: var(--btn-fg);
+        }
+
+        .gd-btn:hover {
+            background: var(--btn-bg-hover);
+        }
+
+        /* Optional: subtle grid lines in lists/cards (if you draw any) */
+        canvas,
+        .grid-line {
+            outline-color: var(--grid-line);
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
 
+        /* use theme tokens, not fixed colors */
         body {
             font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
+            background: var(--bg);
+            /* was #f0f0f0 */
+            color: var(--fg);
             padding: 20px;
         }
 
         h1 {
             text-align: center;
-            color: #333;
+            color: var(--fg);
             margin-bottom: 40px;
         }
 
@@ -31,12 +164,15 @@
             margin: 0 auto;
         }
 
+        /* cards/images/descriptions */
         .game-card {
-            background: white;
+            background: var(--card-bg);
+            /* was #fff */
             border-radius: 10px;
             overflow: hidden;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
-            transition: transform 0.3s ease;
+            box-shadow: var(--elev-shadow);
+            /* was fixed rgba shadow */
+            transition: transform .3s ease;
         }
 
         .game-card:hover {
@@ -47,12 +183,14 @@
             width: 100%;
             height: 200px;
             object-fit: cover;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--chip-border);
+            /* was #eee */
             display: flex;
             justify-content: center;
             align-items: center;
             font-size: 5em;
-            background: #f8f8f8;
+            background: var(--card-bg);
+            /* was #f8f8f8 */
         }
 
         .game-info {
@@ -61,12 +199,12 @@
 
         .game-title {
             font-size: 1.5em;
-            color: #333;
+            color: var(--fg);
             margin-bottom: 10px;
         }
 
         .game-description {
-            color: #666;
+            color: var(--muted);
             margin: 10px 0;
             line-height: 1.5;
         }
@@ -75,30 +213,30 @@
             display: inline-block;
             padding: 10px 20px;
             background: #4CAF50;
-            color: white;
+            color: #fff;
             text-decoration: none;
             border-radius: 5px;
-            transition: background 0.3s ease;
+            transition: background .3s ease;
         }
 
         .play-button:hover {
             background: #45a049;
         }
 
-        @media (max-width: 600px) {
+        @media (max-width:600px) {
             .games-container {
                 grid-template-columns: 1fr;
             }
         }
 
-        /* 添加语言切换按钮样式 */
+        /* Language switch button */
         .language-switch {
             position: fixed;
             top: 20px;
             right: 20px;
             padding: 10px 20px;
             background: #4CAF50;
-            color: white;
+            color: #fff;
             border: none;
             border-radius: 5px;
             cursor: pointer;
@@ -109,47 +247,770 @@
             background: #45a049;
         }
 
-        [lang="en"] {
+        /* make the language/theme buttons follow theme too */
+        .language-switch,
+        #gdLangBtn,
+        #gdThemeBtn {
+            background: var(--btn-bg);
+            color: var(--btn-fg);
+        }
+
+        /* === LANGUAGE TOGGLE RULES (safe for slow/old devices) === */
+        /* Hide language snippets by default */
+        :root [lang] {
             display: none;
         }
 
-        .en [lang="zh"] {
-            display: none;
-        }
-
-        .en [lang="en"] {
+        /* Show the matching language for the page */
+        html[lang="en"] [lang="en"] {
             display: block;
+        }
+
+        html[lang="fr"] [lang="fr"] {
+            display: block;
+        }
+
+        html[lang="zh"] [lang="zh"] {
+            display: block;
+        }
+
+        /* === Mobile-responsive gd-bar overrides === */
+        .gd-bar {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 12px;
+            margin: 0 0 14px;
+            background: var(--bar-bg);
+            /* was #ffffff */
+            border: 1px solid var(--bar-border);
+            border-radius: 12px;
+            box-shadow: var(--elev-shadow);
+            /* was fixed rgba shadow */
+        }
+
+        /* Left group (points/level/streak + roulette) and right group (user/login) */
+        .gd-inline,
+        .gd-user {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        /* Chips + buttons get sane sizes and wrap */
+        .gd-chip {
+            background: var(--chip-bg);
+            /* was #f7f7f7 */
+            border: 1px solid var(--chip-border);
+            /* was #e9e9e9 */
+            border-radius: 999px;
+            padding: 6px 10px;
+            font-size: clamp(12px, 3.2vw, 14px);
+            line-height: 1;
+            white-space: nowrap;
+            color: var(--fg);
+        }
+
+        .gd-btn {
+            background: var(--btn-bg);
+            /* was #4CAF50 */
+            color: var(--btn-fg);
+            /* ensure readable in dark */
+            border: 0;
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: clamp(12px, 3.2vw, 14px);
+            cursor: pointer;
+        }
+
+        .gd-btn:disabled {
+            opacity: .5;
+            cursor: default;
+        }
+
+        /* Keep long phone numbers tidy */
+        #gdUserPhone {
+            max-width: 220px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* ====== Breakpoint: tablets & down ====== */
+        @media (max-width: 900px) {
+            .gd-bar {
+                gap: 10px;
+            }
+
+            #gdUserPhone {
+                max-width: 180px;
+            }
+        }
+
+        /* ====== Breakpoint: phones ====== */
+        @media (max-width: 720px) {
+            .gd-bar {
+                flex-direction: column;
+                align-items: stretch;
+                padding: 10px;
+                gap: 10px;
+            }
+
+            .gd-inline,
+            .gd-user {
+                justify-content: center;
+                /* center groups on small screens */
+            }
+
+            #gdUserPhone {
+                max-width: 160px;
+            }
+        }
+
+        /* ====== Very small phones ====== */
+        @media (max-width: 420px) {
+
+            .gd-inline,
+            .gd-user {
+                gap: 6px;
+            }
+
+            .gd-chip {
+                padding: 6px 8px;
+            }
+
+            .gd-btn {
+                padding: 6px 10px;
+            }
+
+            #gdUserPhone {
+                max-width: 120px;
+            }
         }
     </style>
 </head>
-<body>
-    <button class="language-switch" onclick="toggleLanguage()">EN/中文</button>
 
-    <h1 lang="zh">每天一个 HTML5 小游戏</h1>
-    <h1 lang="en">HTML5 Games Collection</h1>
-    
+<body>
+    <link rel="stylesheet" href="platform/platform.css">
+    <script>window.API_BASE = '/api'</script>
+    <script src="platform/platform.js"></script>
+    <script>
+        (function () {
+            const I18N = {
+                en: {
+                    points: 'Points', lv: 'Lv', streak: 'Streak', spin: 'Spin',
+                    guest: 'Guest', login: 'Login', userCenter: 'User Center',
+                    alreadySpun: "Already spun today.", prize: "Prize: ",
+                    // LOGIN MODAL
+                    loginTitle: 'Login with Mobile',
+                    phonePlaceholder: '+233xxxxxxxxx / +254xxxxxxxxx',
+                    sendOtp: 'Send OTP',
+                    otpPlaceholder: 'Enter OTP code',
+                    verify: 'Verify',
+                    offlineTip: 'Tip: Works offline. We’ll sync when you’re online.',
+                    enterPhone: 'Enter phone',
+                    otpSent: 'OTP sent (or queued offline).',
+                    enterPhoneOtp: 'Enter phone & OTP',
+                    loggedOffline: 'Logged in (offline, will sync).',
+                    loggedIn: 'Logged in!'
+                },
+                fr: {
+                    points: 'Points', lv: 'Niv', streak: 'Série', spin: 'Tourner',
+                    guest: 'Invité', login: 'Connexion', userCenter: "Espace utilisateur",
+                    alreadySpun: "Déjà tourné aujourd'hui.", prize: "Récompense : ",
+                    // LOGIN MODAL
+                    loginTitle: 'Connexion par mobile',
+                    phonePlaceholder: '+233xxxxxxxxx / +254xxxxxxxxx',
+                    sendOtp: 'Envoyer le code',
+                    otpPlaceholder: 'Saisissez le code OTP',
+                    verify: 'Vérifier',
+                    offlineTip: 'Astuce : fonctionne hors ligne. Nous synchroniserons quand vous serez connecté.',
+                    enterPhone: 'Entrez le numéro de téléphone',
+                    otpSent: "OTP envoyé (ou mis en file d'attente hors ligne).",
+                    enterPhoneOtp: 'Entrez le téléphone et le code OTP',
+                    loggedOffline: 'Connecté (hors ligne, sera synchronisé).',
+                    loggedIn: 'Connecté !'
+                },
+                zh: {
+                    points: '积分', lv: '等级', streak: '连登天数', spin: '抽奖',
+                    guest: '游客', login: '登录', userCenter: '用户中心',
+                    alreadySpun: "今天已经抽过了。", prize: "奖励：",
+                    // LOGIN MODAL
+                    loginTitle: '手机号登录',
+                    phonePlaceholder: '+233xxxxxxxxx / +254xxxxxxxxx',
+                    sendOtp: '发送验证码',
+                    otpPlaceholder: '输入验证码',
+                    verify: '验证',
+                    offlineTip: '提示：离线可用，联网后会自动同步。',
+                    enterPhone: '请输入手机号',
+                    otpSent: '验证码已发送（或离线排队）。',
+                    enterPhoneOtp: '请输入手机号和验证码',
+                    loggedOffline: '已登录（离线，将在联网时同步）。',
+                    loggedIn: '登录成功！'
+                }
+            };
+
+            const lang = () => document.documentElement.getAttribute('lang') || 'en';
+            const txt = (k) => (I18N[lang()] && I18N[lang()][k]) || I18N.en[k] || k;
+            window.__gdTxt = txt; // expose translator
+
+            function hydrateBarLabels() {
+                const set = (id, key) => { const el = document.getElementById(id); if (el) el.textContent = txt(key); };
+                set('i18nPoints', 'points');
+                set('i18nLv', 'lv');
+                set('i18nStreak', 'streak');
+                set('i18nSpin', 'spin');
+                set('i18nLogin', 'login');
+                set('i18nUserCenter', 'userCenter');
+
+                // If user not logged in, localize the "Guest" chip
+                try {
+                    const u = PlatformSDK.getUser();
+                    if (!u || !u.phone) {
+                        const up = document.getElementById('gdUserPhone');
+                        if (up) up.textContent = txt('guest');
+                    }
+                } catch (_) {
+                    const up = document.getElementById('gdUserPhone');
+                    if (up && up.textContent.trim().toLowerCase() === 'guest') up.textContent = txt('guest');
+                }
+
+                // Localize roulette alerts
+                const btn = document.getElementById('gdRouletteBtn');
+                if (btn && !btn.__i18nBound) {
+                    const P = window.PlatformSDK;
+                    btn.onclick = () => {
+                        const r = P.spinRoulette();
+                        if (!r.ok) return alert(txt('alreadySpun'));
+                        alert(txt('prize') + r.prize);
+                        btn.disabled = true;
+                    };
+                    btn.__i18nBound = true;
+                }
+            }
+
+            // run once now
+            hydrateBarLabels();
+
+            // re-run after language toggle (we’ll dispatch a custom event)
+            document.addEventListener('gd:lang', hydrateBarLabels);
+
+            function hydrateAuthLabels() {
+                const set = (sel, val, attr) => {
+                    const el = document.querySelector(sel);
+                    if (!el) return;
+                    if (attr) el.setAttribute(attr, val); else el.textContent = val;
+                };
+                set('#i18nLoginTitle', txt('loginTitle'));
+                set('#gdPhone', txt('phonePlaceholder'), 'placeholder');
+                set('#gdSendOtp', txt('sendOtp'));
+                set('#gdOtp', txt('otpPlaceholder'), 'placeholder');
+                set('#gdVerifyOtp', txt('verify'));
+                set('#i18nOfflineTip', txt('offlineTip'));
+            }
+
+            // run once now
+            hydrateBarLabels();
+            hydrateAuthLabels();
+
+            // also re-run on language change
+            document.addEventListener('gd:lang', () => {
+                hydrateBarLabels();
+                hydrateAuthLabels();
+            });
+
+            // patch the floating language button to also fire the event
+            const langBtn = document.querySelector('.language-switch');
+            if (langBtn && !langBtn.__patched) {
+                langBtn.onclick = function () {
+                    var order = ['en', 'fr', 'zh'];
+                    var cur = document.documentElement.getAttribute('lang') || 'en';
+                    var next = order[(order.indexOf(cur) + 1) % order.length];
+                    localStorage.setItem('portal.lang', next);
+                    document.documentElement.setAttribute('lang', next);
+                    document.dispatchEvent(new Event('gd:lang'));
+                };
+                langBtn.__patched = true;
+            }
+        })();
+    </script>
+    <script>
+        // put this anywhere after the gd-bar i18n script
+        (function () {
+            function cycleLang() {
+                var order = ['en', 'fr', 'zh'];
+                var cur = document.documentElement.getAttribute('lang') || 'en';
+                var next = order[(order.indexOf(cur) + 1) % order.length];
+                localStorage.setItem('portal.lang', next);
+                document.documentElement.setAttribute('lang', next);
+                document.dispatchEvent(new Event('gd:lang'));   // <-- tell hydrator to update texts
+            }
+            const btn = document.getElementById('gdLangBtn');
+            if (btn && !btn.__bound) { btn.addEventListener('click', cycleLang); btn.__bound = true; }
+
+            // Belt & suspenders: auto-hydrate if <html lang> changes for any reason
+            new MutationObserver((m) => { if (m[0] && m[0].attributeName === 'lang') document.dispatchEvent(new Event('gd:lang')); })
+                .observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+        })();
+    </script>
+
+    <!-- Top status bar -->
+    <div class="gd-bar">
+        <div class="gd-inline">
+            <div class="gd-chip">⭐ <span id="i18nPoints">Points</span>: <b id="gdPoints">0</b></div>
+            <div class="gd-chip">📈 <span id="i18nLv">Lv</span> <b id="gdLevel">1</b></div>
+            <div class="gd-chip">🔥 <span id="i18nStreak">Streak</span>: <b id="gdStreak">0</b></div>
+            <button class="gd-btn" id="gdRouletteBtn">🎡 <span id="i18nSpin">Spin</span></button>
+            <!-- In your gd-user block -->
+            <button class="gd-btn" id="gdThemeBtn" aria-label="Toggle theme">🌗</button>
+        </div>
+        <div class="gd-user">
+            <span id="gdUserPhone" class="gd-chip">Guest</span>
+            <button class="gd-btn" id="gdLoginBtn">📱 <span id="i18nLogin">Login</span></button>
+            <a class="gd-btn" id="gdUserCenter" href="user/user.html">👤 <span id="i18nUserCenter">User
+                    Center</span></a>
+            <button class="gd-btn" id="gdLangBtn" aria-label="Change language" onclick="(function(){
+                  var order=['en','fr','zh'];
+                  var cur=document.documentElement.getAttribute('lang')||'en';
+                  var next=order[(order.indexOf(cur)+1)%order.length];
+                  localStorage.setItem('portal.lang', next);
+                  document.documentElement.setAttribute('lang', next);
+                })()">EN / FR / 中文</button>
+        </div>
+    </div>
+    <div id="gdRouletteModal">
+        <div class="gd-roulette-card">
+            <div class="gd-roulette-head">
+                <div class="gd-roulette-title" id="i18nRouletteTitle">🎡 Daily Roulette</div>
+                <button class="gd-roulette-close" id="gdRouletteClose">OK</button>
+            </div>
+            <div class="gd-wheel-wrap">
+                <div class="gd-pointer"></div>
+                <canvas id="gdWheelCanvas" width="420" height="420"></canvas>
+            </div>
+            <div class="gd-roulette-result" id="gdRouletteResult"></div>
+        </div>
+    </div>
+
+    <!-- Login modal (very small, inline) -->
+    <div id="gdLoginModal" class="gd-card" style="max-width:520px; margin:10px auto; display:none;">
+        <div class="gd-title" id="i18nLoginTitle">Login with Mobile</div>
+        <div class="gd-row">
+            <input id="gdPhone" class="gd-input" placeholder="+233xxxxxxxxx / +254xxxxxxxxx">
+            <button class="gd-btn" id="gdSendOtp">Send OTP</button>
+        </div>
+        <div class="gd-row" style="margin-top:8px;">
+            <input id="gdOtp" class="gd-input" placeholder="Enter OTP code">
+            <button class="gd-btn" id="gdVerifyOtp">Verify</button>
+        </div>
+        <div class="gd-muted" id="i18nOfflineTip">Tip: Works offline. We’ll sync when you’re online.</div>
+    </div>
+
+    <!-- Payment mini card (optional now, can hide with display:none) -->
+    <div id="gdPayCard" class="gd-card" style="max-width:520px; margin:10px auto; display:none;">
+        <div class="gd-title">Mobile Money</div>
+        <div class="gd-row">
+            <select id="gdProvider" class="gd-input">
+                <option value="MPESA">M-Pesa</option>
+                <option value="MTN">MTN MoMo</option>
+                <option value="AIRTEL">Airtel Money</option>
+                <option value="ORANGE">Orange Money</option>
+            </select>
+            <input id="gdMsisdn" class="gd-input" placeholder="Phone (MSISDN)">
+            <input id="gdAmount" class="gd-input" type="number" min="1" step="1" placeholder="Amount">
+            <button class="gd-btn" id="gdPay">Pay</button>
+        </div>
+        <div id="gdPayNote" class="gd-muted"></div>
+    </div>
+
+    <script>
+        // Bind header widgets
+        (function () {
+            const P = PlatformSDK;
+            function refresh() {
+                document.getElementById('gdPoints').textContent = P.getPoints();
+                document.getElementById('gdLevel').textContent = P.getLevel();
+                document.getElementById('gdStreak').textContent = P.getStreak();
+                const u = P.getUser();
+                const guest = (window.__gdTxt && window.__gdTxt('guest')) || 'Guest';
+                document.getElementById('gdUserPhone').textContent =
+                    u.phone ? ('+' + u.phone.replace(/^\+?/, '')) : guest;
+            }
+            refresh();
+
+            document.addEventListener('gd:points', refresh);
+            document.addEventListener('gd:streak', refresh);
+            document.addEventListener('gd:login', refresh);
+
+            // Roulette
+            const btn = document.getElementById('gdRouletteBtn');
+            btn.disabled = !P.canSpinToday();
+            btn.onclick = () => {
+                const r = P.spinRoulette();
+                if (!r.ok) return alert('Already spun today.');
+                alert('Prize: ' + r.prize);
+                btn.disabled = true;
+            };
+
+            // Login
+            const loginBtn = document.getElementById('gdLoginBtn');
+            const modal = document.getElementById('gdLoginModal');
+            loginBtn.onclick = () => modal.style.display = (modal.style.display === 'none' ? 'block' : 'none');
+
+            document.getElementById('gdSendOtp').onclick = async () => {
+                const t = window.__gdTxt || (k => k);
+                const phone = document.getElementById('gdPhone').value.trim();
+                if (!phone) return alert(t('enterPhone'));
+                await P.requestOtp(phone);
+                alert(t('otpSent'));
+            };
+            document.getElementById('gdVerifyOtp').onclick = async () => {
+                const t = window.__gdTxt || (k => k);
+                const phone = document.getElementById('gdPhone').value.trim();
+                const otp = document.getElementById('gdOtp').value.trim();
+                if (!phone || !otp) return alert(t('enterPhoneOtp'));
+                const r = await P.verifyOtp(phone, otp);
+                if (r.ok) {
+                    alert(r.offline ? t('loggedOffline') : t('loggedIn'));
+                    modal.style.display = 'none';
+                }
+            };
+
+            // Payment (optional to show)
+            // document.getElementById('gdPayCard').style.display = 'block';
+            document.getElementById('gdPay')?.addEventListener('click', async () => {
+                const provider = document.getElementById('gdProvider').value;
+                const msisdn = document.getElementById('gdMsisdn').value.trim();
+                const amount = parseInt(document.getElementById('gdAmount').value, 10) || 0;
+                if (!amount || !msisdn) return alert('Enter phone and amount');
+                const intent = await P.pay(amount, provider, msisdn);
+                document.getElementById('gdPayNote').textContent = intent.instructions || 'Payment initiated (or queued offline).';
+            });
+        })();
+    </script>
+    <script>
+        // Minimal toggle: Auto -> Light -> Dark -> Auto (updates instantly)
+        (function () {
+            const order = ['auto', 'light', 'dark'];
+            const L = {
+                en: { auto: 'Theme: Auto (time)', light: 'Theme: Light', dark: 'Theme: Dark' },
+                fr: { auto: 'Thème : Auto (heure)', light: 'Thème : Clair', dark: 'Thème : Sombre' },
+                zh: { auto: '主题：自动（按时间）', light: '主题：浅色', dark: '主题：深色' }
+            };
+            function label(mode) {
+                const btn = document.getElementById('gdThemeBtn');
+                const lang = document.documentElement.getAttribute('lang') || 'en';
+                const t = (L[lang] || L.en)[mode];
+                btn.title = t; btn.setAttribute('aria-label', t);
+                btn.textContent = mode === 'light' ? '☀️' : (mode === 'dark' ? '🌙' : '🌗');
+            }
+            function cycle() {
+                const cur = PortalTheme.getMode();
+                const next = order[(order.indexOf(cur) + 1) % order.length];
+                PortalTheme.setMode(next);
+                label(next);
+            }
+            const btn = document.getElementById('gdThemeBtn');
+            if (btn && !btn.__bound) {
+                btn.addEventListener('click', cycle);
+                btn.__bound = true;
+            }
+            // hydrate on load + when theme changes elsewhere
+            label(PortalTheme.getMode());
+            document.addEventListener('gd:theme', (e) => label(e.detail.mode));
+        })();
+    </script>
+    <script>
+        (function () {
+            // --- add a few i18n strings (reuses your I18N map) ---
+            const addI18N = () => {
+                if (!window.__gdTxt) return; // your translator already present
+                // extend dictionaries if missing
+                const dicts = window.I18N || null; // only if you exposed it; fallback below
+                // Fallback translator
+                const txt = window.__gdTxt;
+                document.getElementById('i18nRouletteTitle').textContent = ({
+                    en: '🎡 Daily Roulette',
+                    fr: '🎡 Roue quotidienne',
+                    zh: '🎡 每日转盘'
+                })[document.documentElement.getAttribute('lang') || 'en'];
+                document.getElementById('gdRouletteClose').textContent = ({
+                    en: 'OK', fr: 'OK', zh: '确定'
+                })[document.documentElement.getAttribute('lang') || 'en'];
+            };
+
+            // --- quick WebAudio (ticks + win chime) ---
+            let AC; const actx = () => (AC ||= new (window.AudioContext || window.webkitAudioContext)());
+            function beep(freq = 900, ms = 50, gain = 0.08) {
+                try {
+                    const ac = actx(); if (ac.state === 'suspended') ac.resume();
+                    const o = ac.createOscillator(), g = ac.createGain();
+                    o.type = 'square'; o.frequency.value = freq;
+                    g.gain.value = gain; o.connect(g); g.connect(ac.destination);
+                    o.start();
+                    g.gain.exponentialRampToValueAtTime(1e-4, ac.currentTime + ms / 1000);
+                    o.stop(ac.currentTime + ms / 1000 + .02);
+                } catch { }
+            }
+            function winChime() {
+                setTimeout(() => beep(660, 120, 0.10), 0);
+                setTimeout(() => beep(880, 140, 0.10), 140);
+                setTimeout(() => beep(990, 180, 0.09), 300);
+            }
+
+            // --- Wheel model (8 equal segments) ---
+            const SEGMENTS = [
+                { key: 'p10', icon: '+10' },
+                { key: 'mov', icon: '🎟 MOV' },
+                { key: 'p30', icon: '+30' },
+                { key: 'none', icon: '🙃' },
+                { key: 'p60', icon: '+60' },
+                { key: 'sup', icon: '🎟 SUP' },
+                { key: 'p120', icon: '+120' },
+                { key: 'none2', icon: '🙂' },
+            ];
+            const segDeg = 360 / SEGMENTS.length;
+
+            // Localized labels per segment (kept short to fit wedges)
+            const WHEEL_TEXT = {
+                en: {
+                    p10: '+10', p30: '+30', p60: '+60', p120: '+120',
+                    mov: '🎟\nMovie', sup: '🎟\nSupermarket',
+                    none: '🙃\nNext', none2: '🙂\nNext'
+                },
+                fr: {
+                    p10: '+10', p30: '+30', p60: '+60', p120: '+120',
+                    mov: '🎟\nCinéma', sup: '🎟\nSupermarché',
+                    none: '🙃\nÀ demain', none2: '🙂\nÀ demain'
+                },
+                zh: {
+                    p10: '+10', p30: '+30', p60: '+60', p120: '+120',
+                    mov: '🎟\n电影票', sup: '🎟\n超市券',
+                    none: '🙃\n明天再来', none2: '🙂\n明天再来'
+                }
+            };
+            function segLabel(key) {
+                const l = document.documentElement.getAttribute('lang') || 'en';
+                return (WHEEL_TEXT[l] && WHEEL_TEXT[l][key]) || WHEEL_TEXT.en[key] || key;
+            }
+
+            // map PlatformSDK result -> segment key
+            function keyFromResult(r) {
+                if (r.ticket) {
+                    const n = (r.ticket.label || r.prize || '').toUpperCase();
+                    return n.includes('MOVIE') ? 'mov' : 'sup';
+                }
+                const p = String(r.prize || '');
+                if (/\+120/.test(p)) return 'p120';
+                if (/\+60/.test(p)) return 'p60';
+                if (/\+30/.test(p)) return 'p30';
+                if (/\+10/.test(p)) return 'p10';
+                return 'none';
+            }
+
+            // drawing helpers
+            function getThemeColors() {
+                const cs = getComputedStyle(document.documentElement);
+                const fg = cs.getPropertyValue('--fg').trim() || '#222';
+                const card = cs.getPropertyValue('--card-bg').trim() || '#fff';
+                const accent = cs.getPropertyValue('--btn-bg').trim() || '#4CAF50';
+                return { fg, card, accent };
+            }
+            function drawWheel(canvas) {
+                const { accent, card, fg } = getThemeColors();
+                const ctx = canvas.getContext('2d');
+                const dpr = Math.max(1, window.devicePixelRatio || 1);
+                const size = Math.min(canvas.clientWidth || canvas.width, canvas.clientHeight || canvas.height);
+                canvas.width = size * dpr; canvas.height = size * dpr;
+                const cx = canvas.width / 2, cy = canvas.height / 2, R = (size * dpr) / 2 - 6 * dpr;
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.save(); ctx.translate(cx, cy);
+
+                // ring background
+                ctx.beginPath(); ctx.arc(0, 0, R + 6 * dpr, 0, Math.PI * 2); ctx.fillStyle = card; ctx.fill();
+
+                for (let i = 0; i < SEGMENTS.length; i++) {
+                    const a0 = (i * segDeg - 90) * Math.PI / 180; // start at top
+                    const a1 = ((i + 1) * segDeg - 90) * Math.PI / 180;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.arc(0, 0, R, a0, a1, false);
+                    // alternating shades from accent
+                    ctx.fillStyle = i % 2 ? accent : '#2fb564';
+                    ctx.fill();
+                    // border
+                    ctx.strokeStyle = 'rgba(0,0,0,.12)'; ctx.lineWidth = 1 * dpr; ctx.stroke();
+
+                    // label
+                    ctx.save();
+                    const mid = (a0 + a1) / 2;
+                    ctx.rotate(mid);
+                    ctx.translate(R * 0.68, 0);
+                    ctx.rotate(Math.PI / 2);
+                    ctx.fillStyle = '#fff';
+                    ctx.font = `${14 * dpr}px system-ui,Arial`; 
+                    ctx.textAlign = 'center';
+                    const label = segLabel(SEGMENTS[i].key);
+                    const lines = String(label).split('\n');  
+                    for (let li = 0; li < lines.length; li++) {
+                        const y = (li - (lines.length - 1) / 2) * (16 * dpr); // stack lines
+                        ctx.fillText(lines[li], 0, y + 5 * dpr);
+                    }
+                    ctx.restore();
+                }
+
+                // hub
+                ctx.beginPath(); ctx.arc(0, 0, R * 0.22, 0, Math.PI * 2);
+                ctx.fillStyle = card; ctx.fill(); ctx.lineWidth = 2 * dpr; ctx.strokeStyle = 'rgba(0,0,0,.15)'; ctx.stroke();
+
+                ctx.restore();
+            }
+
+            // easing
+            const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+
+            // UI
+            const modal = document.getElementById('gdRouletteModal');
+            const canvas = document.getElementById('gdWheelCanvas');
+            const resultEl = document.getElementById('gdRouletteResult');
+            const closeBtn = document.getElementById('gdRouletteClose');
+            let spinning = false, currentDeg = 0, lastTickSeg = 0;
+
+            function openModal() { modal.style.display = 'flex'; drawWheel(canvas); resultEl.textContent = ''; resultEl.classList.remove('reveal'); }
+            function closeModal() { modal.style.display = 'none'; }
+
+            closeBtn.addEventListener('click', closeModal);
+            document.addEventListener('gd:theme', () => drawWheel(canvas));
+            document.addEventListener('gd:lang', () => drawWheel(canvas));
+            document.addEventListener('gd:lang', addI18N);
+            addI18N();
+
+            // animate wheel to specific segment index
+            function spinToIndex(idx, onDone) {
+                const rounds = 5 + Math.floor(Math.random() * 2); // 5–6 full turns
+                const segCenter = idx * segDeg + segDeg / 2;
+                const target = rounds * 360 + (90 - segCenter); // pointer at top (90°)
+                const start = currentDeg;
+                const delta = target - start;
+                const dur = 3400; const t0 = performance.now();
+                lastTickSeg = Math.floor((start % 360) / segDeg);
+
+                function frame(t) {
+                    const p = Math.min(1, (t - t0) / dur);
+                    const e = easeOutCubic(p);
+                    const deg = start + delta * e;
+                    canvas.style.transform = `rotate(${deg}deg)`;
+
+                    // ticks each segment boundary crossed since last frame
+                    const segNow = Math.floor((deg % 360) / segDeg);
+                    let diff = segNow - lastTickSeg;
+                    if (diff < 0) diff += SEGMENTS.length;
+                    while (diff-- > 0) beep(900, 35, 0.07);
+                    lastTickSeg = segNow;
+
+                    if (p < 1) { requestAnimationFrame(frame); }
+                    else { currentDeg = deg % 360; onDone && onDone(); }
+                }
+                requestAnimationFrame(frame);
+            }
+
+            // hook the main button
+            function bindButton() {
+                const P = window.PlatformSDK;
+                const btn = document.getElementById('gdRouletteBtn');
+                if (!btn || btn.__fancyBound) return;
+                btn.__fancyBound = true;
+
+                // initial enabled/disabled
+                btn.disabled = !P.canSpinToday();
+
+                btn.onclick = async () => {
+                    if (spinning) return;
+                    if (!P.canSpinToday()) {
+                        const t = window.__gdTxt || (k => k);
+                        return alert(t('alreadySpun') || 'Already spun today.');
+                    }
+
+                    // Perform spin FIRST (so the animation can target the real outcome)
+                    spinning = true; btn.disabled = true;
+                    const r = P.spinRoulette(); // sync in your SDK
+                    if (!r || !r.ok) {
+                        spinning = false; btn.disabled = !P.canSpinToday();
+                        const t = window.__gdTxt || (k => k);
+                        return alert(t('alreadySpun') || 'Already spun today.');
+                    }
+
+                    // open modal, draw, animate to the matching slice
+                    openModal();
+                    const key = keyFromResult(r);
+                    const idx = Math.max(0, SEGMENTS.findIndex(s => s.key === key));
+                    // quick start sound
+                    beep(520, 120, 0.1);
+
+                    spinToIndex(idx, () => {
+                        // reveal result text (localized prefix)
+                        const t = window.__gdTxt || (k => k);
+                        resultEl.textContent = (t('prize') || 'Prize: ') + (r.prize || '');
+                        resultEl.classList.add('reveal');
+                        winChime();
+                        spinning = false;
+                        // Points/tickets UI will auto-refresh via your existing gd:points / gd:tickets listeners
+                    });
+                };
+            }
+
+            // bind once DOM is ready, and rebind if language script re-hydrates
+            if (document.readyState !== 'loading') bindButton();
+            else document.addEventListener('DOMContentLoaded', bindButton);
+
+            // safety: if your earlier hydrate attached a basic handler, we override it
+            document.addEventListener('gd:lang', bindButton);
+        })();
+    </script>
+
+    <h1 lang="en">Welcome to Gamesdom !!!</h1>
+    <h1 lang="fr">Bienvenue sur Gamesdom !!!</h1>
+    <h1 lang="zh">欢迎来到小游戏帝国 !!!</h1>
+
     <div class="games-container">
         <div class="game-card">
             <div class="game-image">📦</div>
             <div class="game-info">
                 <h2 class="game-title" lang="zh">推箱子</h2>
                 <h2 class="game-title" lang="en">Sokoban</h2>
+                <h2 class="game-title" lang="fr">Sokoban</h2>
+
                 <p class="game-description" lang="zh">经典推箱子游戏，考验你的空间思维能力</p>
                 <p class="game-description" lang="en">Classic puzzle game that tests your spatial thinking</p>
+                <p class="game-description" lang="fr">Jeu de puzzle classique qui met à l’épreuve votre logique spatiale
+                </p>
+
                 <a href="Sokoban.html" class="play-button" lang="zh">开始游戏</a>
                 <a href="Sokoban.html" class="play-button" lang="en">Play Now</a>
+                <a href="Sokoban.html" class="play-button" lang="fr">Jouer</a>
             </div>
         </div>
 
         <div class="game-card">
-            <div class="game-image">🎲</div>
+            <div class="game-image">🔢</div>
             <div class="game-info">
                 <h2 class="game-title" lang="zh">2048</h2>
                 <h2 class="game-title" lang="en">2048</h2>
+                <h2 class="game-title" lang="fr">2048</h2>
+
                 <p class="game-description" lang="zh">数字合并游戏，看看你能达到多高的分数</p>
                 <p class="game-description" lang="en">Merge numbers and try to reach 2048!</p>
+                <p class="game-description" lang="fr">Fusionnez les nombres et essayez d’atteindre 2048 !</p>
+
                 <a href="2048.html" class="play-button" lang="zh">开始游戏</a>
                 <a href="2048.html" class="play-button" lang="en">Play Now</a>
+                <a href="2048.html" class="play-button" lang="fr">Jouer</a>
             </div>
         </div>
 
@@ -158,10 +1019,17 @@
             <div class="game-info">
                 <h2 class="game-title" lang="zh">吃豆人</h2>
                 <h2 class="game-title" lang="en">Pacman</h2>
+                <h2 class="game-title" lang="fr">Pacman</h2>
+
                 <p class="game-description" lang="zh">经典街机游戏，吃掉所有豆子，躲避幽灵</p>
                 <p class="game-description" lang="en">Classic arcade game, eat all dots while avoiding ghosts</p>
+                <p class="game-description" lang="fr">Jeu d’arcade classique : mangez toutes les pastilles en évitant
+                    les
+                    fantômes</p>
+
                 <a href="pacman.html" class="play-button" lang="zh">开始游戏</a>
                 <a href="pacman.html" class="play-button" lang="en">Play Now</a>
+                <a href="pacman.html" class="play-button" lang="fr">Jouer</a>
             </div>
         </div>
 
@@ -170,10 +1038,15 @@
             <div class="game-info">
                 <h2 class="game-title" lang="zh">乒乓球</h2>
                 <h2 class="game-title" lang="en">Pong</h2>
+                <h2 class="game-title" lang="fr">Pong</h2>
+
                 <p class="game-description" lang="zh">经典的乒乓球对战游戏</p>
                 <p class="game-description" lang="en">Classic table tennis arcade game</p>
+                <p class="game-description" lang="fr">Jeu d’arcade classique de tennis de table</p>
+
                 <a href="pong.html" class="play-button" lang="zh">开始游戏</a>
                 <a href="pong.html" class="play-button" lang="en">Play Now</a>
+                <a href="pong.html" class="play-button" lang="fr">Jouer</a>
             </div>
         </div>
 
@@ -182,10 +1055,15 @@
             <div class="game-info">
                 <h2 class="game-title" lang="zh">打砖块</h2>
                 <h2 class="game-title" lang="en">Breakout</h2>
+                <h2 class="game-title" lang="fr">Casse-briques</h2>
+
                 <p class="game-description" lang="zh">控制挡板反弹球击碎砖块</p>
                 <p class="game-description" lang="en">Control the paddle to break all the bricks</p>
+                <p class="game-description" lang="fr">Contrôlez la raquette pour casser toutes les briques</p>
+
                 <a href="breakout.html" class="play-button" lang="zh">开始游戏</a>
                 <a href="breakout.html" class="play-button" lang="en">Play Now</a>
+                <a href="breakout.html" class="play-button" lang="fr">Jouer</a>
             </div>
         </div>
 
@@ -194,21 +1072,33 @@
             <div class="game-info">
                 <h2 class="game-title" lang="zh">五子棋</h2>
                 <h2 class="game-title" lang="en">Gomoku</h2>
+                <h2 class="game-title" lang="fr">Gomoku</h2>
+
                 <p class="game-description" lang="zh">经典的五子连珠游戏</p>
                 <p class="game-description" lang="en">Classic Five-in-a-Row board game</p>
+                <p class="game-description" lang="fr">Jeu de plateau classique : alignez cinq pions d’affilée</p>
+
                 <a href="Gomoku.html" class="play-button" lang="zh">开始游戏</a>
                 <a href="Gomoku.html" class="play-button" lang="en">Play Now</a>
+                <a href="Gomoku.html" class="play-button" lang="fr">Jouer</a>
             </div>
         </div>
-  <div class="game-card">
+
+        <div class="game-card">
             <div class="game-image">⬛</div>
             <div class="game-info">
                 <h2 class="game-title" lang="zh">俄罗斯方块</h2>
                 <h2 class="game-title" lang="en">Tetris</h2>
+                <h2 class="game-title" lang="fr">Tetris</h2>
+
                 <p class="game-description" lang="zh">经典益智游戏</p>
                 <p class="game-description" lang="en">Classic puzzle game that tests your spatial thinking</p>
+                <p class="game-description" lang="fr">Jeu de puzzle classique qui met à l’épreuve votre logique spatiale
+                </p>
+
                 <a href="Tetris.html" class="play-button" lang="zh">开始游戏</a>
                 <a href="Tetris.html" class="play-button" lang="en">Play Now</a>
+                <a href="Tetris.html" class="play-button" lang="fr">Jouer</a>
             </div>
         </div>
 
@@ -216,29 +1106,104 @@
             <div class="game-image">🐦</div>
             <div class="game-info">
                 <h2 class="game-title" lang="zh">Flappy鸟</h2>
-                <h2 class="game-title" lang="en">Flappy bird</h2>
-                <p class="game-description" lang="zh">经典微操？游戏</p>
-                <p class="game-description" lang="en">Classic puzzle game that tests your spatial thinking</p>
+                <h2 class="game-title" lang="en">Flappy Bird</h2>
+                <h2 class="game-title" lang="fr">Flappy Bird</h2>
+
+                <p class="game-description" lang="zh">经典微操游戏</p>
+                <p class="game-description" lang="en">Classic micro-control game of flying through pipes</p>
+                <p class="game-description" lang="fr">Jeu classique d’adresse : faites voler l’oiseau à travers les
+                    tuyaux</p>
+
                 <a href="FlappyBird.html" class="play-button" lang="zh">开始游戏</a>
                 <a href="FlappyBird.html" class="play-button" lang="en">Play Now</a>
+                <a href="FlappyBird.html" class="play-button" lang="fr">Jouer</a>
+            </div>
+        </div>
+
+        <div class="game-card">
+            <div class="game-image">🎲</div>
+            <div class="game-info">
+                <h2 class="game-title" lang="zh">飞行棋</h2>
+                <h2 class="game-title" lang="en">Ludo</h2>
+                <h2 class="game-title" lang="fr">Ludo</h2>
+
+                <p class="game-description" lang="zh">经典多人棋盘游戏，适合家庭娱乐</p>
+                <p class="game-description" lang="en">Classic multiplayer board game for family fun</p>
+                <p class="game-description" lang="fr">Jeu de société multijoueur classique, idéal pour s’amuser en
+                    famille</p>
+
+                <a href="ludo.html" class="play-button" lang="zh">开始游戏</a>
+                <a href="ludo.html" class="play-button" lang="en">Play Now</a>
+                <a href="ludo.html" class="play-button" lang="fr">Jouer</a>
+            </div>
+        </div>
+
+        <div class="game-card">
+            <div class="game-image">♟️</div>
+            <div class="game-info">
+                <h2 class="game-title" lang="zh">国际象棋</h2>
+                <h2 class="game-title" lang="en">Chess</h2>
+                <h2 class="game-title" lang="fr">Échecs</h2>
+
+                <p class="game-description" lang="zh">经典策略对战游戏，考验智力与耐心</p>
+                <p class="game-description" lang="en">Classic strategy battle of minds</p>
+                <p class="game-description" lang="fr">Jeu de stratégie classique qui met à l’épreuve l’intelligence et
+                    la
+                    patience</p>
+
+                <a href="chess.html" class="play-button" lang="zh">开始游戏</a>
+                <a href="chess.html" class="play-button" lang="en">Play Now</a>
+                <a href="chess.html" class="play-button" lang="fr">Jouer</a>
+            </div>
+        </div>
+
+        <div class="game-card">
+            <div class="game-image">🔵</div>
+            <div class="game-info">
+                <h2 class="game-title" lang="en">Bubble Shooter</h2>
+                <h2 class="game-title" lang="fr">Tireur de bulles</h2>
+                <h2 class="game-title" lang="zh">泡泡龙</h2>
+
+                <p class="game-description" lang="en">Shoot bubbles and match colors to clear the board</p>
+                <p class="game-description" lang="fr">Lancez des bulles et associez les couleurs pour nettoyer le
+                    plateau</p>
+                <p class="game-description" lang="zh">发射彩色泡泡，消除相同颜色的组合</p>
+
+                <a href="bubble-shooter.html" class="play-button" lang="en">Play Now</a>
+                <a href="bubble-shooter.html" class="play-button" lang="fr">Jouer</a>
+                <a href="bubble-shooter.html" class="play-button" lang="zh">开始游戏</a>
+            </div>
+        </div>
+
+        <div class="game-card">
+            <div class="game-image">🧩</div>
+            <div class="game-info">
+                <h2 class="game-title" lang="zh">数独</h2>
+                <h2 class="game-title" lang="en">Sudoku</h2>
+                <h2 class="game-title" lang="fr">Sudoku</h2>
+
+                <p class="game-description" lang="zh">填入1到9，保证每行每列每宫不重复</p>
+                <p class="game-description" lang="en">Fill digits 1–9 without repeating in rows, cols, or boxes</p>
+                <p class="game-description" lang="fr">Remplissez les chiffres de 1 à 9 sans répétition dans les lignes,
+                    colonnes
+                    et régions</p>
+
+                <a href="sudoku.html" class="play-button" lang="zh">开始游戏</a>
+                <a href="sudoku.html" class="play-button" lang="en">Play Now</a>
+                <a href="sudoku.html" class="play-button" lang="fr">Jouer</a>
             </div>
         </div>
     </div>
-	
 
-	      
-    <footer style="text-align: center; margin-top: 40px; padding: 20px; color: #666;">
-        <a href="https://github.com/Anionex" style="color: #4CAF50; text-decoration: none; margin-right: 10px;">GitHub</a>
-        <span lang="zh">By 2024 anion</span>
-        <span lang="en">By 2024 anion</span>
-        <p lang="zh">© 2024 anion 版权所有</p>
-        <p lang="en">© 2024 anion All Rights Reserved</p>
+    <footer style="text-align:center; margin-top:40px; padding:20px; color:#666;">
+        <a href="https://dfs.org/" style="color:#4CAF50; text-decoration:none; margin-right:10px;">Author</a>
+        <span lang="zh">2025 DFS</span>
+        <span lang="en">2025 DFS</span>
+        <span lang="fr">2025 DFS</span>
+        <p lang="zh">© 2025 DFS 版权所有</p>
+        <p lang="en">© 2025 DFS All Rights Reserved</p>
+        <p lang="fr">© 2025 DFS Tous Droits Réservés</p>
     </footer>
-
-    <script>
-        function toggleLanguage() {
-            document.body.classList.toggle('en');
-        }
-    </script>
 </body>
-</html> 
+
+</html>

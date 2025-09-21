@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <link rel="icon" href="./ludo-favicon.ico">
+    <title>Ludo</title>
+
+    <!-- Persist language BEFORE paint (inherits ?lang= from portal and stores it) -->
+    <script>
+        (function () {
+            var KEY = 'portal.lang';
+            var m = (location.search.match(/[?&]lang=(en|fr|zh)\b/) || [])[1];
+            var saved = localStorage.getItem(KEY);
+            var lang = m || saved || 'en';
+            document.documentElement.setAttribute('lang', lang);
+            localStorage.setItem(KEY, lang);
+            const by = document.querySelector('.heading');
+            if (by) by.textContent = L.byline;
+        })();
+    </script>
+
+    <style>
+        /* ======= style.css (inlined) ======= */
+        /* (no changes, pasted 1:1) */
+        * {
+            margin: 0;
+            padding: 0
+        }
+
+        body {
+            background: linear-gradient(60deg, rgba(255, 0, 0, 0.45), rgba(0, 128, 0, 0.46), rgba(0, 0, 255, 0.34), rgba(255, 255, 0, 0.49));
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        #game_container {
+            height: 85vh;
+            width: 85vh;
+            background-color: rgba(0, 0, 0, .54);
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            margin-top: -80px;
+            display: none;
+            position: relative
+        }
+
+        .vertically_stacked_containers {
+            height: 40%;
+            width: 100%;
+            display: flex
+        }
+
+        .vertically_stacked_container_mid {
+            height: 20%;
+            width: 100%;
+            display: flex;
+            flex-direction: row
+        }
+
+        .player_containers {
+            height: 100%;
+            width: 40%;
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 10px
+        }
+
+        .resting_points {
+            width: 35%;
+            height: 35%;
+            border-radius: 200px;
+            background-color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center
+        }
+
+        .playing_lines {
+            width: 6.6666%;
+            height: 100%;
+            background-color: #fff;
+            display: flex;
+            flex-direction: column
+        }
+
+        .winning_lines {
+            width: 6.6666%;
+            display: flex;
+            flex-direction: column
+        }
+
+        .mid_lines {
+            width: 40%;
+            height: 100%
+        }
+
+        .playing_lines_mid {
+            width: 100%;
+            height: 33%;
+            background-color: #fff;
+            display: flex;
+            flex-direction: row
+        }
+
+        .winning_lines_mid {
+            width: 100%;
+            height: 33%;
+            display: flex;
+            flex-direction: row
+        }
+
+        .winning_portion {
+            height: 100%;
+            width: 20%;
+            background-color: rgba(255, 254, 254, 0)
+        }
+
+        #red_player_container {
+            background: #d20404
+        }
+
+        #green_player_container {
+            background-color: #04b404
+        }
+
+        #blue_player_container {
+            background: #075bfa
+        }
+
+        #yellow_player_container {
+            background-color: #dae106
+        }
+
+        #winning_container_image {
+            width: 100%;
+            height: 100%
+        }
+
+        #yellow_winning_line {
+            background-color: #dae106
+        }
+
+        #green_winning_line {
+            background-color: #04b404
+        }
+
+        #blue_winning_line {
+            background: #075bfa
+        }
+
+        #red_winning_line {
+            background: #d20404
+        }
+
+        .movable_line,
+        .movable_line_winning {
+            border: 1px solid #000;
+            height: 16.66%;
+            width: 100%
+        }
+
+        .movable_line_mid,
+        .movable_line_winning_mid {
+            border: 1px solid #000;
+            width: 16.66%;
+            height: 100%
+        }
+
+        .dice_player_section {
+            margin-top: 20px;
+            margin-bottom: -90px;
+            width: 50%;
+            height: 80px;
+            border-radius: 15px;
+            display: flex;
+            display: none;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 20%;
+            background: linear-gradient(60deg, rgba(37, 3, 3, .49), rgba(7, 31, 7, .55), rgba(7, 7, 56, .52), rgba(49, 49, 13, .51))
+        }
+
+        .choice {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 25px;
+            background: linear-gradient(90deg, #035203, blue);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-weight: 550;
+            gap: 10px
+        }
+
+        .choice button {
+            height: 40px;
+            width: 100px;
+            font-size: 30px;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            color: #d3f5e9;
+            background: linear-gradient(50deg, green, blue);
+            transition: all .3s ease-in-out
+        }
+
+        .choice button:hover {
+            height: 55px;
+            width: 120px;
+            cursor: pointer;
+            box-shadow: 0 10px 10px #1e1f1d;
+            margin-bottom: 20px
+        }
+
+        .two_pl_choice {
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(90deg, green, blue);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-weight: 550;
+            font-size: 25px;
+            align-items: center
+        }
+
+        .two_pl_choice button {
+            height: 70px;
+            width: 70px;
+            border-radius: 80px;
+            border: none;
+            transition: all .3s ease-in-out
+        }
+
+        .two_pl_choice button:hover {
+            height: 85px;
+            width: 85px;
+            cursor: pointer;
+            box-shadow: 0 10px 10px #1e1f1d
+        }
+
+        #choice1 {
+            background: linear-gradient(90deg, blue, green 80%)
+        }
+
+        #choice2 {
+            background: linear-gradient(90deg, red 20%, yellow);
+            margin-bottom: 20px
+        }
+
+        #dice {
+            width: 60px;
+            height: 60px;
+            background-color: #caf5cc;
+            border-radius: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            border: none;
+            transition: ease-in-out all .3s
+        }
+
+        #dice_output {
+            color: #121623;
+            font-weight: bolder;
+            font-size: 30px
+        }
+
+        #current_player {
+            height: 60px;
+            width: 60px;
+            background-color: blue;
+            box-shadow: 0 5px 7px #000;
+            border-radius: 50%
+        }
+
+        .mover {
+            width: 25%;
+            transition: all .3s ease-in-out;
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            z-index: 1000
+        }
+
+        .mover_img {
+            width: 100%;
+            transition: all .3s ease-in-out
+        }
+
+        #l51,
+        #l12,
+        #l25,
+        #l38 {
+            background-color: #fff
+        }
+
+        #l1 {
+            background-color: #d20404
+        }
+
+        #l14 {
+            background-color: #04b404
+        }
+
+        #l27 {
+            background-color: #dae106
+        }
+
+        #l40 {
+            background-color: #075bfa
+        }
+
+        .winning_portion {
+            position: relative
+        }
+
+        #winning_container_image {
+            position: absolute
+        }
+
+        .winners_stop {
+            position: absolute;
+            height: 33%;
+            width: 35%
+        }
+
+        #wr6 {
+            top: 34%
+        }
+
+        #wy6 {
+            top: 34%;
+            right: 0
+        }
+
+        #wb6 {
+            bottom: 0;
+            left: 33%
+        }
+
+        #wg6 {
+            left: 33%
+        }
+
+        .safe {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 4vh;
+            background-color: #b2f5b2;
+            text-shadow: 0 1px 10px #009d00
+        }
+
+        #winner_announcer {
+            position: absolute;
+            width: 100vw;
+            height: 80%;
+            background: linear-gradient(90deg, #f87676, #ffec39);
+            border-top-left-radius: 30px;
+            border-top-right-radius: 30px;
+            box-shadow: 0 -10px 100px #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            bottom: 0;
+            overflow: hidden;
+            z-index: 99999999;
+            visibility: hidden
+        }
+
+        .enter {
+            position: absolute;
+            width: 100vw;
+            height: 100vh;
+            background-color: #6cfa6c;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            font-size: 12px;
+            justify-content: center
+        }
+
+        .enter h2 {
+            padding: 20px
+        }
+
+        #start_ludo {
+            z-index: 100000000000;
+            border-radius: 10px;
+            border: 0;
+            padding: 10px;
+            font-size: 20px;
+            font-weight: 500;
+            background-color: #04ff11;
+            box-shadow: 0 10px 20px #000;
+            cursor: pointer
+        }
+
+        .win_vid {
+            height: 100%;
+            position: absolute;
+            opacity: .94
+        }
+
+        #winner_img {
+            width: 40%;
+            margin-top: -22vh;
+            z-index: 1
+        }
+
+        .losers_player {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            width: auto;
+            border-radius: 20px;
+            padding: 15px 40px;
+            gap: 40px;
+            margin-bottom: -142px;
+            margin-top: 122px;
+            color: #fff;
+            background: linear-gradient(45deg, rgba(120, 5, 5, .71), rgba(19, 43, 138, .76));
+            box-shadow: 0 10px 10px #000;
+            z-index: 1
+        }
+
+        .losers_player p {
+            font-size: 30px;
+            transition: all .3s
+        }
+
+        .losers_player p:hover {
+            font-size: 45px;
+            transform: translateY(-10px);
+            font-weight: 500;
+            cursor: pointer
+        }
+
+        #winner_id {
+            -webkit-text-stroke-width: 1px;
+            font-size: 9vh;
+            font-weight: bold;
+            background: linear-gradient(45deg, rgba(120, 5, 5, .71), rgba(19, 43, 138, .76));
+            box-shadow: -4px 14px 20px #000;
+            border-radius: 10px;
+            padding: 0 60px;
+            color: #ccbbf4;
+            z-index: 1
+        }
+
+        #player_inputs2,
+        #player_inputs4,
+        #player_inputs3,
+        #player_inputsT {
+            display: none;
+            font-size: 20px;
+            font-weight: bold;
+            flex-direction: column
+        }
+
+        #player_inputs2 input,
+        #player_inputs4 input,
+        #player_inputs3 input,
+        #player_inputsT input {
+            height: 40px;
+            border-radius: 15px;
+            border: none;
+            margin-bottom: 20px;
+            margin-top: 10px
+        }
+
+        .submit {
+            border: none;
+            border-radius: 15px;
+            height: 40px;
+            background-color: #1dc525;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold
+        }
+
+        #red_player_name,
+        #blue_player_name,
+        #green_player_name,
+        #yellow_player_name {
+            position: absolute;
+            font-size: 3vh;
+            font-weight: bold;
+            color: #112c0f
+        }
+
+        .themes {
+            position: absolute;
+            height: 100%;
+            width: 100%
+        }
+
+        .logo_box {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            margin-top: -10vh
+        }
+
+        .logo_img {
+            width: 60vh;
+            margin-bottom: 2vh
+        }
+
+        .heading {
+            position: absolute;
+            bottom: 20px;
+            color: #dedc28;
+            background-color: #000;
+            font-family: sans-serif;
+            padding: 10px;
+            border-radius: 15px
+        }
+
+        .menu-div {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 0;
+            width: 90vw;
+            height: 90vh;
+            border-radius: 15px;
+            backdrop-filter: blur(15px)
+        }
+
+        .blur_effect {
+            height: 100%;
+            width: 100%;
+            background-color: #fff;
+            opacity: .3;
+            position: absolute;
+            z-index: -2;
+            border-radius: 15px
+        }
+
+        .bg_img {
+            height: 100vh;
+            width: 100vw;
+            position: absolute;
+            z-index: -3
+        }
+
+        @media screen and (max-width:500px) {
+            body {
+                height: 100vh;
+                width: 100vw;
+                padding: 0;
+                margin: 0
+            }
+
+            html {
+                padding: 0;
+                margin: 0
+            }
+
+            .choice,
+            .two_pl_choice {
+                font-size: 22px
+            }
+
+            #game_container {
+                width: 350px;
+                height: 350px
+            }
+
+            #winner_id {
+                background: linear-gradient(45deg, rgba(120, 5, 5, .959), rgba(19, 43, 138, .938));
+                font-size: 55px
+            }
+
+            #winner_img {
+                width: 200px;
+                margin-top: -230px
+            }
+
+            .losers_player p {
+                font-size: 18px
+            }
+
+            .losers_player {
+                gap: 20px;
+                padding: 10px 20px
+            }
+
+            .yellow_movers {
+                width: 16px !important
+            }
+
+            .movable_line,
+            .movable_line_mid,
+            .mid_lines,
+            .winning_lines,
+            .winning_lines_mid,
+            .movable_line_winning,
+            .movable_line_winning_mid {
+                border: .6px solid #000
+            }
+
+            .safe {
+                font-size: 15px;
+                font-weight: 350
+            }
+
+            .menu-div {
+                width: 340px;
+                height: 80%
+            }
+
+            input {
+                text-align: center
+            }
+
+            #green_player_name,
+            #blue_player_name,
+            #red_player_name,
+            #yellow_player_name {
+                font-size: 16px
+            }
+        }
+
+        /* ===== end inlined style.css ===== */
+    </style>
+    <style>
+        .safe {
+            background: repeating-linear-gradient(45deg, #ffe9a3, #ffe9a3 6px, #ffd86a 6px, #ffd86a 12px);
+            color: #7a5200 !important;
+            font-weight: 900;
+            text-shadow: 0 1px 0 #fff8dc;
+        }
+    </style>
+</head>
+
+<body>
+    <link rel="stylesheet" href="platform/platform.css">
+    <script src="platform/platform.js"></script>
+    <script>PlatformSDK.startGame('LUDO');</script> <!-- Use a unique ID per game -->
+    <script>
+        (function () {
+            // Track whether we currently have an open session for LUDO
+            window._ludoSession = !!window.PlatformSDK;
+
+            function ludoStart() {
+                try {
+                    if (window.PlatformSDK && !window._ludoSession) {
+                        PlatformSDK.startGame('LUDO'); window._ludoSession = true;
+                    }
+                } catch { }
+            }
+            function ludoEnd() {
+                try {
+                    if (window.PlatformSDK && window._ludoSession) {
+                        PlatformSDK.endGame(); window._ludoSession = false;
+                    }
+                } catch { }
+            }
+
+            // Light throttle so rapid events (like short-step moves) don’t spam
+            let _last = 0;
+            function award(n, why) {
+                if (!window.PlatformSDK) return;
+                const now = Date.now();
+                if (n <= 1 && now - _last < 300) return; // throttle tiny scores
+                _last = now;
+                PlatformSDK.addPoints(n, why);
+            }
+
+            // Expose for ludo-script.js
+            window.LudoPortal = { ludoStart, ludoEnd, award };
+
+            // Safety: end the session if the tab closes
+            window.addEventListener('beforeunload', ludoEnd);
+
+            // If you prefer the session to open only once the board is actually shown:
+            const startBtn = document.getElementById('start_ludo');
+            if (startBtn) startBtn.addEventListener('click', () => ludoStart(), { once: true });
+
+            // Auto-detect match end via the winner overlay becoming visible
+            const ann = document.getElementById('winner_announcer');
+            if (ann && window.MutationObserver) {
+                const obs = new MutationObserver(() => {
+                    const vis = ann.style.visibility || getComputedStyle(ann).visibility;
+                    if (vis === 'visible') { award(10, 'Ludo: match win'); ludoEnd(); }
+                });
+                obs.observe(ann, { attributes: true, attributeFilter: ['style', 'class'] });
+            }
+        })();
+    </script>
+
+    <div id="game_container">
+        <!-- <img class="themes" id="theme1" src="ludo_images/theme1_simple.jpg" alt="theme" srcset=""> -->
+
+        <div class="vertically_stacked_containers">
+
+            <div class="player_containers" id="red_player_container">
+                <div class="resting_points">
+                    <button id="rmb1" class="mover red_movers">
+                        <img id="red_mover_1" class="mover_img" src="ludo_images/red_player.png" alt="mover">
+                    </button>
+                </div>
+
+                <div class="resting_points">
+                    <button id="rmb2" class="mover  red_movers">
+                        <img id="red_mover_2" class="mover_img" src="ludo_images/red_player.png" alt="mover">
+                    </button>
+                </div>
+                <div class="resting_points">
+                    <button id="rmb3" class="mover  red_movers">
+                        <img id="red_mover_3" class="mover_img" src="ludo_images/red_player.png" alt="mover">
+                    </button>
+                </div>
+                <div class="resting_points">
+                    <button id="rmb4" class="mover red_movers">
+                        <img id="red_mover_4" class="mover_img" src="ludo_images/red_player.png" alt="mover">
+                    </button>
+                </div>
+                <p id="red_player_name"></p>
+            </div>
+
+            <div class="playing_lines">
+                <div class="movable_line" id="l11"></div>
+                <div class="movable_line" id="l10"></div>
+                <div class="movable_line safe" id="l9">X</div>
+                <div class="movable_line" id="l8"></div>
+                <div class="movable_line" id="l7"></div>
+                <div class="movable_line" id="l6"></div>
+            </div>
+
+            <div class="winning_lines" id="green_winning_line">
+                <div class="movable_line_winning" id="l12"></div>
+                <div class="movable_line_winning" id="wg1"></div>
+                <div class="movable_line_winning" id="wg2"></div>
+                <div class="movable_line_winning" id="wg3"></div>
+                <div class="movable_line_winning" id="wg4"></div>
+                <div class="movable_line_winning" id="wg5"></div>
+            </div>
+
+            <div class="playing_lines">
+                <div class="movable_line" id="l13"></div>
+                <div class="movable_line safe" id="l14"></div>
+                <div class="movable_line" id="l15"></div>
+                <div class="movable_line" id="l16"></div>
+                <div class="movable_line" id="l17"></div>
+                <div class="movable_line" id="l18"></div>
+            </div>
+
+            <div class="player_containers" id="green_player_container">
+                <div class="resting_points">
+                    <button id="gmb1" class="mover green_movers">
+                        <img id="green_mover_1" class="mover_img" src="ludo_images/green_player.png" alt="mover">
+                    </button>
+                </div>
+                <div class="resting_points">
+                    <button id="gmb2" class="mover  green_movers">
+                        <img id="green_mover_2" class="mover_img" src="ludo_images/green_player.png" alt="mover">
+                    </button>
+                </div>
+                <div class="resting_points">
+                    <button id="gmb3" class="mover  green_movers">
+                        <img id="green_mover_3" class="mover_img" src="ludo_images/green_player.png" alt="mover">
+                    </button>
+                </div>
+                <div class="resting_points">
+                    <button id="gmb4" class="mover green_movers">
+                        <img id="green_mover_4" class="mover_img" src="ludo_images/green_player.png" alt="mover">
+                    </button>
+                </div>
+                <p id="green_player_name"></p>
+            </div>
+
+        </div>
+
+        <div class="vertically_stacked_container_mid">
+            <div class="mid_lines">
+                <div class="playing_lines_mid">
+                    <div class="movable_line_mid" id="l0"></div>
+                    <div class="movable_line_mid safe" id="l1"></div>
+                    <div class="movable_line_mid" id="l2"></div>
+                    <div class="movable_line_mid" id="l3"></div>
+                    <div class="movable_line_mid" id="l4"></div>
+                    <div class="movable_line_mid" id="l5"></div>
+                </div>
+                <div class="winning_lines_mid" id="red_winning_line">
+                    <div class="movable_line_winning_mid" id="l51"></div>
+                    <div class="movable_line_winning_mid" id="wr1"></div>
+                    <div class="movable_line_winning_mid" id="wr2"></div>
+                    <div class="movable_line_winning_mid" id="wr3"></div>
+                    <div class="movable_line_winning_mid" id="wr4"></div>
+                    <div class="movable_line_winning_mid" id="wr5"></div>
+                </div>
+                <div class="playing_lines_mid">
+                    <div class="movable_line_mid" id="l50"></div>
+                    <div class="movable_line_mid" id="l49"></div>
+                    <div class="movable_line_mid safe" id="l48">X</div>
+                    <div class="movable_line_mid" id="l47"></div>
+                    <div class="movable_line_mid" id="l46"></div>
+                    <div class="movable_line_mid" id="l45"></div>
+                </div>
+            </div>
+
+            <div class="winning_portion">
+                <img id="winning_container_image" src="ludo_images/winning_container4.png" alt="">
+                <div class="winners_stop" id="wr6"></div>
+                <div class="winners_stop" id="wg6"></div>
+                <div class="winners_stop" id="wy6"></div>
+                <div class="winners_stop" id="wb6"></div>
+            </div>
+
+            <div class="mid_lines">
+                <div class="playing_lines_mid">
+                    <div class="movable_line_mid" id="l19"></div>
+                    <div class="movable_line_mid" id="l20"></div>
+                    <div class="movable_line_mid" id="l21"></div>
+                    <div class="movable_line_mid safe" id="l22">X</div>
+                    <div class="movable_line_mid" id="l23"></div>
+                    <div class="movable_line_mid" id="l24"></div>
+                </div>
+                <div class="winning_lines_mid" id="yellow_winning_line">
+                    <div class="movable_line_winning_mid" id="wy5"></div>
+                    <div class="movable_line_winning_mid" id="wy4"></div>
+                    <div class="movable_line_winning_mid" id="wy3"></div>
+                    <div class="movable_line_winning_mid" id="wy2"></div>
+                    <div class="movable_line_winning_mid" id="wy1"></div>
+                    <div class="movable_line_winning_mid" id="l25"></div>
+                </div>
+                <div class="playing_lines_mid">
+                    <div class="movable_line_mid" id="l31"></div>
+                    <div class="movable_line_mid" id="l30"></div>
+                    <div class="movable_line_mid" id="l29"></div>
+                    <div class="movable_line_mid" id="l28"></div>
+                    <div class="movable_line_mid safe" id="l27"></div>
+                    <div class="movable_line_mid" id="l26"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="vertically_stacked_containers">
+            <div class="player_containers" id="blue_player_container">
+                <div class="resting_points">
+                    <button id="bmb1" class="mover blue_movers">
+                        <img id="blue_mover_1" class="mover_img" src="ludo_images/blue_player.png" alt="mover">
+                    </button>
+                </div>
+                <div class="resting_points">
+                    <button id="bmb2" class="mover blue_movers">
+                        <img id="blue_mover_2" class="mover_img" src="ludo_images/blue_player.png" alt="mover">
+                    </button>
+                </div>
+                <div class="resting_points">
+                    <button id="bmb3" class="mover blue_movers">
+                        <img id="blue_mover_3" class="mover_img" src="ludo_images/blue_player.png" alt="mover">
+                    </button>
+                </div>
+                <div class="resting_points">
+                    <button id="bmb4" class="mover blue_movers">
+                        <img id="blue_mover_4" class="mover_img" src="ludo_images/blue_player.png" alt="mover">
+                    </button>
+                </div>
+                <p id="blue_player_name"></p>
+            </div>
+
+            <div class="playing_lines">
+                <div class="movable_line" id="l44"></div>
+                <div class="movable_line" id="l43"></div>
+                <div class="movable_line" id="l42"></div>
+                <div class="movable_line" id="l41"></div>
+                <div class="movable_line safe" id="l40"></div>
+                <div class="movable_line" id="l39"></div>
+            </div>
+            <div class="winning_lines" id="blue_winning_line">
+                <div class="movable_line_winning" id="wb5"></div>
+                <div class="movable_line_winning" id="wb4"></div>
+                <div class="movable_line_winning" id="wb3"></div>
+                <div class="movable_line_winning" id="wb2"></div>
+                <div class="movable_line_winning" id="wb1"></div>
+                <div class="movable_line_winning" id="l38"></div>
+            </div>
+            <div class="playing_lines">
+                <div class="movable_line" id="l32"></div>
+                <div class="movable_line" id="l33"></div>
+                <div class="movable_line" id="l34"></div>
+                <div class="movable_line safe" id="l35">X</div>
+                <div class="movable_line" id="l36"></div>
+                <div class="movable_line" id="l37"></div>
+            </div>
+            <div class="player_containers" id="yellow_player_container">
+                <div class="resting_points">
+                    <button id="ymb1" class="mover yellow_movers">
+                        <img id="yellow_mover_1" class="mover_img" src="ludo_images/yellow_player.png" alt="mover">
+                    </button>
+                </div>
+                <div class="resting_points">
+                    <button id="ymb2" class="mover  yellow_movers">
+                        <img id="yellow_mover_2" class="mover_img" src="ludo_images/yellow_player.png" alt="mover">
+                    </button>
+                </div>
+                <div class="resting_points">
+                    <button id="ymb3" class="mover  yellow_movers">
+                        <img id="yellow_mover_3" class="mover_img" src="ludo_images/yellow_player.png" alt="mover">
+                    </button>
+                </div>
+                <div class="resting_points">
+                    <button id="ymb4" class="mover yellow_movers">
+                        <img id="yellow_mover_4" class="mover_img" src="ludo_images/yellow_player.png" alt="mover">
+                    </button>
+                </div>
+                <p id="yellow_player_name"></p>
+            </div>
+
+        </div>
+    </div>
+    <div class="dice_player_section">
+        <button id="dice">
+            <p id="dice_output">1</p>
+        </button>
+        <div id="current_player"></div>
+    </div>
+
+
+    <img src="ludo_images/bg0.png" alt="background" class="bg_img">
+
+
+    <div class="menu-div">
+        <div class="logo_box">
+            <img class="logo_img" src="ludo_images/logo1.png" alt="logo">
+        </div>
+        <div class="blur_effect"></div>
+        <div class='choice'>
+            <p>Select Number of players</p>
+            <button id="pl_choice1" class="player_num_btns">2</button>
+            <button id="pl_choice3" class="player_num_btns">3</button>
+            <button id="pl_choice2" class="player_num_btns">4</button>
+            <button id="pl_choiceT" class="player_num_btns">Team</button>
+        </div>
+
+        <div class="two_pl_choice">
+            <p>Select Choice for two players</p>
+            <button id="choice1"></button>
+            <button id="choice2"></button>
+        </div>
+
+        <div id="player_inputs2">
+            <label for="p1">Enter player 1</label>
+            <input type="text" id="p1" value="Player1">
+            <label for="p2">Enter player 2</label>
+            <input type="text" id="p2" value="Player2">
+
+            <button id="sub1" class="submit">Play</button>
+        </div>
+        <div id="player_inputs3">
+            <label for="p31">Enter player 1</label>
+            <input type="text" id="p31" value="Player1">
+            <label for="p32">Enter player 2</label>
+            <input type="text" id="p32" value="Player2">
+            <label for="p33">Enter player 3</label>
+            <input type="text" id="p33" value="Player3">
+
+            <button id="sub3" class="submit">Play</button>
+        </div>
+        <div id="player_inputs4">
+            <label for="p41">Enter player 1</label>
+            <input type="text" id="p41" value="Player1">
+            <label for="p42">Enter player 2</label>
+            <input type="text" id="p42" value="Player2">
+            <label for="p43">Enter player 3</label>
+            <input type="text" id="p43" value="Player3">
+            <label for="p44">Enter player 4</label>
+            <input type="text" id="p44" value="Player4">
+            <button id="sub2" class="submit">Play</button>
+        </div>
+        <div id="player_inputsT">
+            <label for="p41T">Enter player 1</label>
+            <input type="text" id="p41T" value="Player1">
+            <label for="p42T">Enter player 2</label>
+            <input type="text" id="p42T" value="Player2">
+            <label for="p43T">Enter player 3</label>
+            <input type="text" id="p43T" value="Player3">
+            <label for="p44T">Enter player 4</label>
+            <input type="text" id="p44T" value="Player4">
+            <button id="subT" class="submit">Play</button>
+        </div>
+        <h4 class="heading">
+            -by PRANAY RAHAR
+        </h4>
+    </div>
+
+    <div id="winner_announcer">
+        <video class="win_vid" autoplay loop>
+            <source src="ludo_videos/winner.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+        <img id="winner_img" src="ludo_images/winner.png" alt="winner_img">
+        <span id="winner_id"></span>
+        <div class="losers_player">
+            <p id="winner_2"></p>
+            <p id="winner_3"></p>
+            <p id="winner_4"></p>
+        </div>
+    </div>
+    <div class="enter">
+        <h2>
+            Please select only reasonable pieces, selecting a wrong or non reasonable piece will dismiss your chance
+        </h2>
+        <button id="start_ludo">Enter Game</button>
+    </div>
+
+    <audio id="still_game" loop>
+        <source src="ludo_game_sounds/still_game.ogg" type="audio/ogg">
+    </audio>
+    <audio id="click">
+        <source src="ludo_game_sounds/click.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="dice_roll">
+        <source src="ludo_game_sounds/dice_roll.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="in_game" loop>
+        <source src="ludo_game_sounds/in_game.ogg" type="audio/ogg">
+    </audio>
+    <audio id="winning" loop>
+        <source src="ludo_game_sounds/winning.ogg" type="audio/ogg">
+    </audio>
+    <audio id="destroyed">
+        <source src="ludo_game_sounds/destroyed.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="mover_in">
+        <source src="ludo_game_sounds/mover_in.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="start">
+        <source src="ludo_game_sounds/start.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="error">
+        <source src="ludo_game_sounds/erro.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        (function () {
+            const STR = {
+                en: {
+                    selectPlayers: "Select Number of players",
+                    selectPair: "Select Choice for two players",
+                    p1: "Enter player 1", p2: "Enter player 2", p3: "Enter player 3", p4: "Enter player 4",
+                    play: "Play", team: "Team", enterGame: "Enter Game",
+                    warning: "Please select only reasonable pieces, selecting a wrong or non reasonable piece will dismiss your chance",
+                    two: "2", three: "3", four: "4",
+                    blueGreen: "Blue & Green", redYellow: "Red & Yellow"
+                },
+                fr: {
+                    selectPlayers: "Choisissez le nombre de joueurs",
+                    selectPair: "Choix pour deux joueurs",
+                    p1: "Entrez le joueur 1", p2: "Entrez le joueur 2", p3: "Entrez le joueur 3", p4: "Entrez le joueur 4",
+                    play: "Jouer", team: "Équipe", enterGame: "Entrer dans le jeu",
+                    warning: "Veuillez ne sélectionner que des pièces raisonnables ; un choix non raisonnable fera perdre votre tour.",
+                    two: "2", three: "3", four: "4",
+                    blueGreen: "Bleu & Vert", redYellow: "Rouge & Jaune"
+                },
+                zh: {
+                    selectPlayers: "选择玩家人数",
+                    selectPair: "选择双人对战组合",
+                    p1: "输入玩家 1", p2: "输入玩家 2", p3: "输入玩家 3", p4: "输入玩家 4",
+                    play: "开始", team: "组队", enterGame: "进入游戏",
+                    warning: "请选择合理的棋子，选择错误或不合理的棋子将失去本回合。",
+                    two: "2", three: "3", four: "4",
+                    blueGreen: "蓝 & 绿", redYellow: "红 & 黄"
+                }
+            };
+
+            function t() { return STR[document.documentElement.getAttribute('lang')] || STR.en; }
+
+            function applyI18n() {
+                const L = t();
+
+                // Menu texts
+                const pSelect = document.querySelector('.choice > p');
+                if (pSelect) pSelect.textContent = L.selectPlayers;
+
+                const pPair = document.querySelector('.two_pl_choice > p');
+                if (pPair) pPair.textContent = L.selectPair;
+
+                // Player count buttons (text is numeric; keep as-is but safe update)
+                const b2 = document.getElementById('pl_choice1'); if (b2) b2.textContent = L.two;
+                const b3 = document.getElementById('pl_choice3'); if (b3) b3.textContent = L.three;
+                const b4 = document.getElementById('pl_choice2'); if (b4) b4.textContent = L.four;
+                const bTeam = document.getElementById('pl_choiceT'); if (bTeam) bTeam.textContent = L.team;
+
+                // Two-player choice buttons (they’re color buttons; use title tooltips)
+                const c1 = document.getElementById('choice1'); if (c1) c1.title = L.blueGreen;
+                const c2 = document.getElementById('choice2'); if (c2) c2.title = L.redYellow;
+
+                // Input labels and placeholders
+                const set = (forId, text, inputId) => {
+                    const lab = document.querySelector(`label[for="${forId}"]`);
+                    if (lab) lab.textContent = text;
+                    const inp = document.getElementById(inputId || forId);
+                    if (inp) inp.placeholder = text;
+                };
+                set('p1', L.p1); set('p2', L.p2); set('p31', L.p1); set('p32', L.p2); set('p33', L.p3);
+                set('p41', L.p1); set('p42', L.p2); set('p43', L.p3); set('p44', L.p4);
+                set('p41T', L.p1); set('p42T', L.p2); set('p43T', L.p3); set('p44T', L.p4);
+
+                // Play buttons
+                const sub1 = document.getElementById('sub1'); if (sub1) sub1.textContent = L.play;
+                const sub2 = document.getElementById('sub2'); if (sub2) sub2.textContent = L.play;
+                const sub3 = document.getElementById('sub3'); if (sub3) sub3.textContent = L.play;
+                const subT = document.getElementById('subT'); if (subT) subT.textContent = L.play;
+
+                // Enter overlay
+                const h2 = document.querySelector('.enter h2'); if (h2) h2.textContent = L.warning;
+                const start = document.getElementById('start_ludo'); if (start) start.textContent = L.enterGame;
+
+                // Footer byline
+                const by = document.querySelector('.heading'); if (by) by.textContent = L.byline;
+            }
+
+            // Run now, and re-run whenever language changes dynamically
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', applyI18n);
+            } else { applyI18n(); }
+
+            // Expose for your game logic to call after it shows/hides menus
+            window.__applyI18n = applyI18n;
+        })();
+    </script>
+
+    <!-- Help button -->
+    <button id="ludo_help_btn"
+        style="position:fixed; top:14px; right:14px; z-index:9999; border:none; border-radius:12px; padding:10px 12px; background:#ffffff; box-shadow:0 4px 10px rgba(0,0,0,.25);">
+        ❓
+    </button>
+
+    <!-- Help overlay -->
+    <div id="ludo_help_overlay" aria-hidden="true"
+        style="position:fixed; inset:0; z-index:10001; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.55); backdrop-filter:blur(6px);">
+        <div id="ludo_help_card"
+            style="max-width:min(92vw,640px); background:#0b1220; color:#fff; border-radius:16px; padding:18px 18px 12px; box-shadow:0 10px 30px rgba(0,0,0,.4);">
+            <h3 id="lh_title" style="margin:0 0 8px; font-size:20px;">How to play Ludo</h3>
+            <ol id="lh_list" style="margin:8px 0 12px 20px; line-height:1.45; font-size:15px;"></ol>
+            <button id="ludo_help_close"
+                style="display:block; margin-left:auto; border:none; padding:8px 14px; border-radius:10px; background:#29d; color:#fff; font-weight:600;">
+                Got it!
+            </button>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const HELP = {
+                en: {
+                    title: "How to play Ludo",
+                    steps: [
+                        "Pick the number of players (2, 3, 4) or Team Mode in the menu.",
+                        "Enter player names and press Play. Then press “Enter Game”.",
+                        "Tap the dice to roll on your turn. You need a 6 to bring a token out.",
+                        "Tap a highlighted token to move it the dice number of steps.",
+                        "Landing on an opponent sends their token home (unless the square is marked X – safe).",
+                        "Reach your color’s home column and enter the center by exact count.",
+                        "First to bring all tokens home wins. Choose only valid moves or you lose the turn."
+                    ],
+                    close: "Got it!"
+                },
+                fr: {
+                    title: "Comment jouer au Ludo",
+                    steps: [
+                        "Choisissez le nombre de joueurs (2, 3, 4) ou le mode Équipe dans le menu.",
+                        "Saisissez les noms des joueurs puis appuyez sur Jouer. Ensuite, « Entrer dans le jeu ».",
+                        "Touchez le dé pour jouer à votre tour. Un 6 est nécessaire pour sortir un pion.",
+                        "Touchez un pion mis en surbrillance pour le déplacer du nombre de cases indiquées.",
+                        "Tomber sur un adversaire renvoie son pion à sa base (sauf sur les cases X – sûres).",
+                        "Atteignez la colonne de votre couleur puis entrez au centre avec un compte exact.",
+                        "Le premier à rentrer tous ses pions gagne. Un coup non valide fait perdre le tour."
+                    ],
+                    close: "Compris !"
+                },
+                zh: {
+                    title: "怎么玩飞行棋（Ludo）",
+                    steps: [
+                        "在菜单中选择玩家人数（2/3/4）或组队模式。",
+                        "输入玩家名字并点击开始，然后点击“进入游戏”。",
+                        "轮到你时点击骰子。掷到 6 才能把棋子从基地移出。",
+                        "点击高亮的棋子，按点数前进相应步数。",
+                        "若落到对手棋子位置，对手棋子将被送回基地（标有 X 的格子是安全格）。",
+                        "走到本方颜色的冲刺通道，再用刚好点数进入中心。",
+                        "最先把全部棋子送入中心者胜。若无合理走法，视为放弃本回合。"
+                    ],
+                    close: "我知道了"
+                }
+            };
+
+            function curLang() { return document.documentElement.getAttribute('lang') || 'en'; }
+
+            function fillHelp() {
+                const L = HELP[curLang()] || HELP.en;
+                const t = document.getElementById('lh_title');
+                const list = document.getElementById('lh_list');
+                const btn = document.getElementById('ludo_help_close');
+                if (!t || !list || !btn) return;
+                t.textContent = L.title;
+                list.innerHTML = '';
+                L.steps.forEach(s => {
+                    const li = document.createElement('li');
+                    li.textContent = s;
+                    list.appendChild(li);
+                });
+                btn.textContent = L.close;
+            }
+
+            // open/close
+            const overlay = document.getElementById('ludo_help_overlay');
+            const openBtn = document.getElementById('ludo_help_btn');
+            const closeBtn = document.getElementById('ludo_help_close');
+
+            if (openBtn && overlay) {
+                openBtn.addEventListener('click', () => {
+                    fillHelp();
+                    overlay.style.display = 'flex';
+                    overlay.setAttribute('aria-hidden', 'false');
+                });
+            }
+            if (closeBtn && overlay) {
+                closeBtn.addEventListener('click', () => {
+                    overlay.style.display = 'none';
+                    overlay.setAttribute('aria-hidden', 'true');
+                });
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay) closeBtn.click();
+                });
+            }
+
+            // re-apply content if language changes dynamically
+            window.addEventListener('languagechange', fillHelp);
+            // expose manual refresh for your menu logic
+            window.__fillLudoHelp = fillHelp;
+
+            // Optional: show help automatically the very first time
+            try {
+                if (!localStorage.getItem('ludo.firstHelpShown')) {
+                    localStorage.setItem('ludo.firstHelpShown', '1');
+                    // Delay to avoid fighting with initial overlays
+                    setTimeout(() => { openBtn && openBtn.click(); }, 500);
+                }
+            } catch (_) { }
+        })();
+    </script>
+
+</body>
+<script src="ludo-script.js"></script>
+<script>
+    (function () {
+        const root = document.getElementById('game_container');
+        if (!root) return;
+        function fit() {
+            const pad = 24; // bit of breathing room
+            const scale = Math.min(
+                (window.innerWidth - pad) / root.offsetWidth,
+                (window.innerHeight - 140) / root.offsetHeight
+            );
+            root.style.transform = (scale < 1 ? `scale(${Math.max(0.72, scale)})` : 'none');
+        }
+        window.addEventListener('resize', fit, { passive: true });
+        document.addEventListener('DOMContentLoaded', fit);
+        setTimeout(fit, 0); // after first paint
+    })();
+</script>
+
+</html>

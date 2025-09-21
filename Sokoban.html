@@ -1,9 +1,24 @@
 <!DOCTYPE html>
 <html lang="zh">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>推箱子游戏</title>
+    <link rel="icon" href="./sokoban-favicon.ico">
+    <title>Sokoban</title>
+
+    <!-- Persist language BEFORE paint (same as portal) -->
+    <script>
+        (function () {
+            var KEY = 'portal.lang';
+            var m = (location.search.match(/[?&]lang=(en|fr|zh)\b/) || [])[1];
+            var saved = localStorage.getItem(KEY);
+            var lang = m || saved || 'en';
+            document.documentElement.setAttribute('lang', lang);
+            localStorage.setItem(KEY, lang);
+        })();
+    </script>
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -11,57 +26,86 @@
             flex-direction: column;
             align-items: center;
             background-color: #f0f0f0;
+            margin: 0;
         }
+
+        /* Show only the active language snippets */
+        :root [lang] {
+            display: none;
+        }
+
+        html[lang="en"] [lang="en"],
+        html[lang="fr"] [lang="fr"],
+        html[lang="zh"] [lang="zh"] {
+            display: block;
+        }
+
+        h1 {
+            margin: 16px 0 8px;
+        }
+
         .game-container {
             display: inline-grid;
             gap: 1px;
             background: #333;
             padding: 10px;
-            margin: 20px 0;
+            margin: 12px 0;
             border-radius: 5px;
         }
+
         .cell {
             width: 50px;
             height: 50px;
             transition: all 0.1s;
             border-radius: 3px;
         }
+
         .floor {
             background: #ffffff;
         }
+
         .wall {
             background: #666;
             border: 1px solid #444;
-            box-shadow: inset 2px 2px 3px rgba(255,255,255,0.2),
-                       inset -2px -2px 3px rgba(0,0,0,0.2);
+            box-shadow: inset 2px 2px 3px rgba(255, 255, 255, 0.2),
+                inset -2px -2px 3px rgba(0, 0, 0, 0.2);
         }
+
         .box {
             background: #b87333;
             border: 2px solid #8b4513;
             box-sizing: border-box;
         }
+
         .target {
             background: #90EE90;
             border: 2px dashed #006400;
             box-sizing: border-box;
         }
+
         .player {
             background: #4169E1;
             border: 2px solid #000080;
             border-radius: 50%;
             box-sizing: border-box;
         }
+
         .box-on-target {
             background: #FFD700;
             border: 2px solid #DAA520;
             box-sizing: border-box;
         }
+
         .controls {
-            margin: 20px 0;
+            margin: 8px 0 6px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
         }
+
         button {
-            margin: 0 5px;
-            padding: 8px 15px;
+            padding: 8px 14px;
             font-size: 16px;
             border: none;
             border-radius: 5px;
@@ -70,25 +114,31 @@
             cursor: pointer;
             transition: background 0.3s;
         }
+
         button:hover {
             background: #45a049;
         }
-        #levelInfo, #stepCounter {
-            font-size: 18px;
-            margin: 10px 0;
+
+        #levelInfo,
+        #stepCounter {
+            font-size: 16px;
+            margin: 6px 0;
         }
+
         .instructions {
-            margin: 20px;
-            padding: 15px;
+            margin: 12px;
+            padding: 12px;
             background: #fff;
             border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+            max-width: 720px;
         }
+
         .game-wrapper {
             display: flex;
             flex-direction: row;
             align-items: flex-start;
-            gap: 30px;
+            gap: 24px;
             justify-content: center;
         }
 
@@ -112,16 +162,12 @@
             position: relative;
             padding: 0;
             image-rendering: pixelated;
-            box-shadow: 
-                inset -4px -4px 0 0 #444,
-                inset 4px 4px 0 0 #888;
+            box-shadow: inset -4px -4px 0 0 #444, inset 4px 4px 0 0 #888;
         }
 
         .gamepad button:active {
             background: #555;
-            box-shadow: 
-                inset 4px 4px 0 0 #444,
-                inset -4px -4px 0 0 #888;
+            box-shadow: inset 4px 4px 0 0 #444, inset -4px -4px 0 0 #888;
             transform: translate(2px, 2px);
         }
 
@@ -160,10 +206,21 @@
             margin-left: 5px;
         }
 
-        .gamepad .up { grid-area: 1/2/2/3; }
-        .gamepad .left { grid-area: 2/1/3/2; }
-        .gamepad .right { grid-area: 2/3/3/4; }
-        .gamepad .down { grid-area: 3/2/4/3; }
+        .gamepad .up {
+            grid-area: 1/2/2/3;
+        }
+
+        .gamepad .left {
+            grid-area: 2/1/3/2;
+        }
+
+        .gamepad .right {
+            grid-area: 2/3/3/4;
+        }
+
+        .gamepad .down {
+            grid-area: 3/2/4/3;
+        }
 
         @media (max-width: 768px) {
             .game-wrapper {
@@ -174,7 +231,7 @@
             .gamepad {
                 grid-template-columns: repeat(3, 80px);
                 grid-template-rows: repeat(3, 80px);
-                margin-bottom: 20px;
+                margin-bottom: 10px;
             }
 
             .gamepad button {
@@ -184,104 +241,198 @@
         }
     </style>
 </head>
+
 <body>
-    <h1>推箱子游戏</h1>
+    <link rel="stylesheet" href="platform/platform.css">
+    <script src="platform/platform.js"></script>
+    <script>PlatformSDK.startGame('SOKOBAN');</script> <!-- Use a unique ID per game -->
+
+    <!-- Titles per language -->
+    <h1 lang="zh">推箱子</h1>
+    <h1 lang="en">Sokoban</h1>
+    <h1 lang="fr">Sokoban</h1>
+
+    <!-- Controls (labels filled by i18n) -->
     <div class="controls">
-        <button onclick="changeLevel(-1)">上一关</button>
-        <button onclick="changeLevel(1)">下一关</button>
-        <button onclick="resetLevel()">重置本关</button>
-        <button onclick="undoMove()">撤销</button>
+        <button id="btnPrev"></button>
+        <button id="btnNext"></button>
+        <button id="btnReset"></button>
+        <button id="btnUndo"></button>
+        <button id="soundBtn" aria-pressed="false"></button>
     </div>
+
     <div id="levelInfo"></div>
     <div id="stepCounter"></div>
+
     <div class="game-wrapper">
         <div id="game" class="game-container"></div>
         <div class="gamepad">
-            <button class="up"></button>
-            <button class="left"></button>
-            <button class="right"></button>
-            <button class="down"></button>
+            <button class="up" aria-label="up"></button>
+            <button class="left" aria-label="left"></button>
+            <button class="right" aria-label="right"></button>
+            <button class="down" aria-label="down"></button>
         </div>
     </div>
+
     <div class="instructions">
-        <p>使用方向键或WASD移动，把所有箱子推到目标点上即可过关</p>
+        <p lang="zh">使用方向键或 W/A/S/D 移动，把所有箱子推到目标点上即可过关。</p>
+        <p lang="en">Use arrow keys or W/A/S/D to move. Push all boxes onto target tiles to clear the level.</p>
+        <p lang="fr">Utilisez les flèches ou W/A/S/D pour vous déplacer. Poussez toutes les caisses sur les cases cibles
+            pour terminer le niveau.</p>
     </div>
 
     <script>
-        // 0:地板 1:墙 2:箱子 3:目标点 4:玩家 5:箱子在目标点上
+        // --- i18n dictionary for dynamic strings ---
+        const I18N = {
+            zh: {
+                title: '推箱子',
+                prev: '上一关',
+                next: '下一关',
+                reset: '重置本关',
+                undo: '撤销',
+                steps: '步数: {n}',
+                level: '当前关卡: {cur} / {total}',
+                win: '恭喜通关！你用了 {steps} 步完成第 {level} 关。',
+                allDone: '恭喜你完成了所有关卡！',
+                soundOn: '声音：开',
+                soundOff: '声音：关'
+            },
+            en: {
+                title: 'Sokoban',
+                prev: 'Previous',
+                next: 'Next',
+                reset: 'Reset',
+                undo: 'Undo',
+                steps: 'Steps: {n}',
+                level: 'Level: {cur} / {total}',
+                win: 'Level cleared! You used {steps} steps to finish level {level}.',
+                allDone: 'Congrats! You finished all levels!',
+                soundOn: 'Sound: On',
+                soundOff: 'Sound: Off'
+            },
+            fr: {
+                title: 'Sokoban',
+                prev: 'Précédent',
+                next: 'Suivant',
+                reset: 'Réinitialiser',
+                undo: 'Annuler',
+                steps: 'Pas: {n}',
+                level: 'Niveau : {cur} / {total}',
+                win: 'Niveau terminé ! Vous avez utilisé {steps} pas pour finir le niveau {level}.',
+                allDone: 'Bravo ! Vous avez terminé tous les niveaux !',
+                soundOn: 'Son : Activé',
+                soundOff: 'Son : Coupé'
+            }
+        };
+        function lang() { return document.documentElement.getAttribute('lang') || 'en'; }
+        function t(key, vars) {
+            const s = (I18N[lang()] && I18N[lang()][key]) || I18N.en[key] || key;
+            return s.replace(/\{(\w+)\}/g, (_, k) => (vars && (k in vars)) ? vars[k] : '{' + k + '}');
+        }
+
+        // --- Levels (unchanged) ---
+        // 0: floor 1: wall 2: box 3: target 4: player 5: box on target
         const levels = [
-            [
-                [1,1,1,1,1,1,1],
-                [1,0,0,0,0,0,1],
-                [1,0,0,2,0,0,1],
-                [1,0,2,4,3,0,1],
-                [1,0,0,3,0,0,1],
-                [1,0,0,0,0,0,1],
-                [1,1,1,1,1,1,1]
-            ],
-            [
-                [1,1,1,1,1,1,1,1],
-                [1,0,0,0,0,0,0,1],
-                [1,0,0,2,2,3,0,1],
-                [1,0,0,0,4,0,0,1],
-                [1,0,3,2,0,0,0,1],
-                [1,0,3,0,0,0,0,1],
-                [1,0,0,0,0,0,0,1],
-                [1,1,1,1,1,1,1,1]
-            ],
-            [
-                [1,1,1,1,1,1,1,1],
-                [1,3,0,0,0,0,3,1],
-                [1,0,2,0,0,2,0,1],
-                [1,0,0,4,2,0,0,1],
-                [1,0,2,0,0,2,0,1],
-                [1,3,0,0,0,0,3,1],
-                [1,0,0,0,0,0,0,1],
-                [1,1,1,1,1,1,1,1]
-            ],
-            [
-    [1,1,1,1,1,1,1,1],
-    [1,0,0,0,0,3,3,1],
-    [1,0,2,2,1,0,0,1],
-    [1,0,0,4,0,0,0,1],
-    [1,0,2,2,1,0,0,1],
-    [1,0,0,0,0,3,3,1],
-    [1,1,1,1,1,1,1,1]
-],
-[
-    [1,1,1,1,1,1,1,1],
-    [1,3,3,3,0,0,0,1],
-    [1,0,0,1,2,2,0,1],
-    [1,0,0,4,0,0,0,1],
-    [1,0,0,1,2,0,0,1],
-    [1,0,0,0,0,0,0,1],
-    [1,1,1,1,1,1,1,1]
-],
-[
-    [1,1,1,1,1,1,1,1],
-    [1,0,0,0,0,3,0,1],
-    [1,0,2,0,1,0,0,1],
-    [1,3,4,2,0,2,3,1],
-    [1,0,2,0,1,0,0,1],
-    [1,0,0,0,0,0,0,1],
-    [1,1,1,1,1,1,1,1]
-],
-[
-    [1,1,1,1,1,1,1,1],
-    [1,3,0,0,0,0,3,1],
-    [1,0,2,2,2,2,0,1],
-    [1,0,0,4,0,0,0,1],
-    [1,0,2,2,2,2,0,1],
-    [1,3,0,0,0,0,3,1],
-    [1,1,1,1,1,1,1,1]
-]
+            [[1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 1], [1, 0, 0, 2, 0, 0, 1], [1, 0, 2, 4, 3, 0, 1], [1, 0, 0, 3, 0, 0, 1], [1, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1]],
+            [[1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 0, 0, 1], [1, 0, 0, 2, 2, 3, 0, 1], [1, 0, 0, 0, 4, 0, 0, 1], [1, 0, 3, 2, 0, 0, 0, 1], [1, 0, 3, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1]],
+            [[1, 1, 1, 1, 1, 1, 1, 1], [1, 3, 0, 0, 0, 0, 3, 1], [1, 0, 2, 0, 0, 2, 0, 1], [1, 0, 0, 4, 2, 0, 0, 1], [1, 0, 2, 0, 0, 2, 0, 1], [1, 3, 0, 0, 0, 0, 3, 1], [1, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1]],
+            [[1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 3, 3, 1], [1, 0, 2, 2, 1, 0, 0, 1], [1, 0, 0, 4, 0, 0, 0, 1], [1, 0, 2, 2, 1, 0, 0, 1], [1, 0, 0, 0, 0, 3, 3, 1], [1, 1, 1, 1, 1, 1, 1, 1]],
+            [[1, 1, 1, 1, 1, 1, 1, 1], [1, 3, 3, 3, 0, 0, 0, 1], [1, 0, 0, 1, 2, 2, 0, 1], [1, 0, 0, 4, 0, 0, 0, 1], [1, 0, 0, 1, 2, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1]],
+            [[1, 1, 1, 1, 1, 1, 1, 1], [1, 0, 0, 0, 0, 3, 0, 1], [1, 0, 2, 0, 1, 0, 0, 1], [1, 3, 4, 2, 0, 2, 3, 1], [1, 0, 2, 0, 1, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1, 1]],
+            [[1, 1, 1, 1, 1, 1, 1, 1], [1, 3, 0, 0, 0, 0, 3, 1], [1, 0, 2, 2, 2, 2, 0, 1], [1, 0, 0, 4, 0, 0, 0, 1], [1, 0, 2, 2, 2, 2, 0, 1], [1, 3, 0, 0, 0, 0, 3, 1], [1, 1, 1, 1, 1, 1, 1, 1]]
         ];
 
         let currentLevel = 0;
         let gameMap = [];
-        let playerPos = {x: 0, y: 0};
+        let playerPos = { x: 0, y: 0 };
         let stepCount = 0;
         let moveHistory = [];
+
+        function applyI18nStatic() {
+            document.title = t('title');
+            document.getElementById('btnPrev').textContent = t('prev');
+            document.getElementById('btnNext').textContent = t('next');
+            document.getElementById('btnReset').textContent = t('reset');
+            document.getElementById('btnUndo').textContent = t('undo');
+            const sb = document.getElementById('soundBtn');
+            if (sb) sb.textContent = t('soundOn'); // default unmuted
+        }
+
+        // --- Minimal WebAudio SFX (no asset files) ---
+        const Snd = (() => {
+            let ctx = null;
+            let muted = false;
+
+            function ensure() {
+                if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            function unlock() {
+                ensure();
+                if (ctx && ctx.state === 'suspended') ctx.resume();
+            }
+            // Small envelope “bleep”
+            function beep(freq = 440, dur = 0.08, type = 'square', vol = 0.07) {
+                if (muted) return;
+                ensure();
+                if (!ctx) return;
+
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = type;
+                osc.frequency.value = freq;
+
+                gain.gain.setValueAtTime(0, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + dur);
+            }
+
+            function play(name) {
+                ensure();
+                switch (name) {
+                    case 'move': beep(660, 0.06, 'square', 0.06); break;           // step
+                    case 'push': beep(440, 0.08, 'square', 0.08); beep(700, 0.06); break; // box push
+                    case 'bump': beep(170, 0.05, 'sawtooth', 0.06); break;         // blocked
+                    case 'undo': beep(520, 0.06, 'triangle', 0.06); beep(320, 0.10, 'triangle', 0.05); break;
+                    case 'win': [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => beep(f, 0.1, 'square', 0.07), i * 100)); break;
+                    case 'next': beep(740, 0.07, 'square', 0.06); break;
+                }
+            }
+
+            function updateBtn() {
+                const btn = document.getElementById('soundBtn');
+                if (!btn) return;
+                btn.textContent = muted ? t('soundOff') : t('soundOn');
+                btn.setAttribute('aria-pressed', muted ? 'true' : 'false');
+            }
+
+            function toggle() { muted = !muted; updateBtn(); }
+
+            function init() {
+                updateBtn();
+                // Mobile autoplay: unlock context on first user gesture
+                ['keydown', 'mousedown', 'touchstart'].forEach(ev => {
+                    window.addEventListener(ev, unlock, { once: true, passive: true });
+                });
+            }
+
+            return { play, toggle, init };
+        })();
+
+        // --- PlatformSDK glue for Sokoban --------------------------------------------
+        const SDK = {
+            add(pts, msg) { try { window.PlatformSDK && PlatformSDK.addPoints(pts, msg); } catch { } },
+            end() { try { window.PlatformSDK && PlatformSDK.endGame(); } catch { } }
+        };
+
+        let levelStartedAt = 0;
+        function markLevelStart() { levelStartedAt = performance.now(); }
+        // End session if tab closes mid-run
+        window.addEventListener('beforeunload', () => SDK.end());
 
         function initGame() {
             gameMap = JSON.parse(JSON.stringify(levels[currentLevel]));
@@ -290,15 +441,15 @@
             moveHistory = [];
             renderGame();
             updateLevelInfo();
+            applyI18nStatic();
+            Snd.init();
+            markLevelStart();
         }
 
         function findPlayer() {
-            for(let y = 0; y < gameMap.length; y++) {
-                for(let x = 0; x < gameMap[y].length; x++) {
-                    if(gameMap[y][x] === 4) {
-                        playerPos = {x, y};
-                        return;
-                    }
+            for (let y = 0; y < gameMap.length; y++) {
+                for (let x = 0; x < gameMap[y].length; x++) {
+                    if (gameMap[y][x] === 4) { playerPos = { x, y }; return; }
                 }
             }
         }
@@ -308,71 +459,61 @@
             gameDiv.style.gridTemplateColumns = `repeat(${gameMap[0].length}, 50px)`;
             gameDiv.innerHTML = '';
 
-            for(let y = 0; y < gameMap.length; y++) {
-                for(let x = 0; x < gameMap[y].length; x++) {
+            for (let y = 0; y < gameMap.length; y++) {
+                for (let x = 0; x < gameMap[y].length; x++) {
                     const cell = document.createElement('div');
                     cell.className = 'cell floor';
-                    
-                    switch(gameMap[y][x]) {
+                    switch (gameMap[y][x]) {
                         case 1: cell.classList.add('wall'); break;
                         case 2: cell.classList.add('box'); break;
                         case 3: cell.classList.add('target'); break;
                         case 4: cell.classList.add('player'); break;
                         case 5: cell.classList.add('box-on-target'); break;
                     }
-                    
                     gameDiv.appendChild(cell);
                 }
             }
-            
-            document.getElementById('stepCounter').innerText = `步数: ${stepCount}`;
+            document.getElementById('stepCounter').textContent = t('steps', { n: stepCount });
             checkWin();
         }
 
         function movePlayer(dx, dy) {
             const newX = playerPos.x + dx;
             const newY = playerPos.y + dy;
-            
-            if(gameMap[newY][newX] === 1) return; // 墙
-            
+
+            if (gameMap[newY][newX] === 1) { Snd.play('bump'); return; }
+
             let moved = false;
-            if(gameMap[newY][newX] === 2 || gameMap[newY][newX] === 5) {
+            if (gameMap[newY][newX] === 2 || gameMap[newY][newX] === 5) {
                 const boxNewX = newX + dx;
                 const boxNewY = newY + dy;
-                
-                if(gameMap[boxNewY][boxNewX] === 1 || 
-                   gameMap[boxNewY][boxNewX] === 2 || 
-                   gameMap[boxNewY][boxNewX] === 5) return;
-                
-                moveHistory.push({
-                    map: JSON.parse(JSON.stringify(gameMap)),
-                    pos: {...playerPos}
-                });
-                
-                if(gameMap[boxNewY][boxNewX] === 3) {
-                    gameMap[boxNewY][boxNewX] = 5;
-                } else {
-                    gameMap[boxNewY][boxNewX] = 2;
-                }
-                
-                if(gameMap[newY][newX] === 5) {
-                    gameMap[newY][newX] = 3;
-                } else {
-                    gameMap[newY][newX] = 0;
-                }
+
+                if (gameMap[boxNewY][boxNewX] === 1 ||
+                    gameMap[boxNewY][boxNewX] === 2 ||
+                    gameMap[boxNewY][boxNewX] === 5) {
+                    Snd.play('bump'); return;
+                };
+
+                moveHistory.push({ map: JSON.parse(JSON.stringify(gameMap)), pos: { ...playerPos } });
+
+                const landingWasTarget = (levels[currentLevel][boxNewY][boxNewX] === 3);
+                gameMap[boxNewY][boxNewX] = landingWasTarget ? 5 : 2;
+                gameMap[newY][newX] = (gameMap[newY][newX] === 5) ? 3 : 0;
+
                 moved = true;
+                Snd.play('push');
+                // +1 for any push, +2 extra if you set a box on a target
+                SDK.add(landingWasTarget ? 1 : 1, landingWasTarget ? 'Sokoban: box onto target' : 'Sokoban: push');
             } else {
-                moveHistory.push({
-                    map: JSON.parse(JSON.stringify(gameMap)),
-                    pos: {...playerPos}
-                });
+                moveHistory.push({ map: JSON.parse(JSON.stringify(gameMap)), pos: { ...playerPos } });
                 moved = true;
+                Snd.play('move');
             }
-            
-            if(moved) {
+
+            if (moved) {
                 const isTarget = levels[currentLevel][playerPos.y][playerPos.x] === 3;
                 gameMap[playerPos.y][playerPos.x] = isTarget ? 3 : 0;
-                playerPos = {x: newX, y: newY};
+                playerPos = { x: newX, y: newY };
                 gameMap[newY][newX] = 4;
                 stepCount++;
                 renderGame();
@@ -384,77 +525,85 @@
                 const previousState = moveHistory.pop();
                 gameMap = previousState.map;
                 playerPos = previousState.pos;
-                if(stepCount > 0) stepCount--;
+                if (stepCount > 0) stepCount--;
                 renderGame();
+                Snd.play('undo');
             }
         }
 
         function checkWin() {
-            let boxesOnTarget = 0;
-            let totalTargets = 0;
-            
-            for(let y = 0; y < gameMap.length; y++) {
-                for(let x = 0; x < gameMap[y].length; x++) {
-                    if(levels[currentLevel][y][x] === 3) totalTargets++;
-                    if(gameMap[y][x] === 5) boxesOnTarget++;
+            let boxesOnTarget = 0, totalTargets = 0;
+            for (let y = 0; y < gameMap.length; y++) {
+                for (let x = 0; x < gameMap[y].length; x++) {
+                    if (levels[currentLevel][y][x] === 3) totalTargets++;
+                    if (gameMap[y][x] === 5) boxesOnTarget++;
                 }
             }
-            
-            if(boxesOnTarget === totalTargets && totalTargets > 0) {
+            if (boxesOnTarget === totalTargets && totalTargets > 0) {
                 setTimeout(() => {
-                    alert(`恭喜通关！你用了 ${stepCount} 步完成第 ${currentLevel + 1} 关。`);
-                    if(currentLevel < levels.length - 1) {
+                    Snd.play('win');
+                    const ms = Math.round(performance.now() - levelStartedAt);
+                    SDK.add(1, `Sokoban: level cleared in ${stepCount} steps (${ms}ms)`);
+
+                    alert(t('win', { steps: stepCount, level: (currentLevel + 1) }));
+
+                    if (currentLevel < levels.length - 1) {
                         changeLevel(1);
                     } else {
-                        alert('恭喜你完成了所有关卡！');
-                        changeLevel(-levels.length + 1);
+                        SDK.end();                       // finish the Platform session
+                        alert(t('allDone'));
+                        changeLevel(-levels.length + 1); // loop back to level 1
                     }
                 }, 100);
             }
         }
 
         function changeLevel(delta) {
+            Snd.play('next');
             currentLevel = (currentLevel + delta + levels.length) % levels.length;
             initGame();
         }
-
-        function resetLevel() {
-            initGame();
-        }
+        function resetLevel() { initGame(); }
 
         function updateLevelInfo() {
-            document.getElementById('levelInfo').innerText = 
-                `当前关卡: ${currentLevel + 1} / ${levels.length}`;
+            document.getElementById('levelInfo').textContent =
+                t('level', { cur: (currentLevel + 1), total: levels.length });
         }
 
+        // Input: keyboard
         document.addEventListener('keydown', (e) => {
-            switch(e.key) {
-                case 'ArrowLeft':
-                case 'a': movePlayer(-1, 0); break;
-                case 'ArrowRight':
-                case 'd': movePlayer(1, 0); break;
-                case 'ArrowUp':
-                case 'w': movePlayer(0, -1); break;
-                case 'ArrowDown':
-                case 's': movePlayer(0, 1); break;
-                case 'z': undoMove(); break;
+            switch (e.key) {
+                case 'ArrowLeft': case 'a': case 'A': movePlayer(-1, 0); break;
+                case 'ArrowRight': case 'd': case 'D': movePlayer(1, 0); break;
+                case 'ArrowUp': case 'w': case 'W': movePlayer(0, -1); break;
+                case 'ArrowDown': case 's': case 'S': movePlayer(0, 1); break;
+                case 'z': case 'Z': undoMove(); break;
             }
         });
 
+        // Input: on-screen gamepad (mouse/touch)
         document.querySelectorAll('.gamepad button').forEach(button => {
-            ['mousedown', 'touchstart'].forEach(eventType => {
-                button.addEventListener(eventType, (e) => {
+            ['mousedown', 'touchstart'].forEach(type => {
+                button.addEventListener(type, (e) => {
                     e.preventDefault();
-                    if(button.classList.contains('up')) movePlayer(0, -1);
-                    if(button.classList.contains('down')) movePlayer(0, 1);
-                    if(button.classList.contains('left')) movePlayer(-1, 0);
-                    if(button.classList.contains('right')) movePlayer(1, 0);
+                    if (button.classList.contains('up')) movePlayer(0, -1);
+                    if (button.classList.contains('down')) movePlayer(0, 1);
+                    if (button.classList.contains('left')) movePlayer(-1, 0);
+                    if (button.classList.contains('right')) movePlayer(1, 0);
                 });
             });
         });
 
-        // 初始化游戏
+        // Wire buttons
+        document.getElementById('btnPrev').onclick = () => changeLevel(-1);
+        document.getElementById('btnNext').onclick = () => changeLevel(1);
+        document.getElementById('btnReset').onclick = () => resetLevel();
+        document.getElementById('btnUndo').onclick = () => undoMove();
+        document.getElementById('soundBtn').onclick = () => Snd.toggle();
+
+        // Init
         initGame();
     </script>
 </body>
+
 </html>

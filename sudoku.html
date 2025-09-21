@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sudoku Game</title>
+    <link rel="stylesheet" href="./sudoku_assets/sudoku.css">
+    <link rel="icon" href="./sudoku-favicon.ico">
+    <script>
+        (function () {
+            var KEY = 'portal.lang';
+            var m = (location.search.match(/[?&]lang=(en|fr|zh)\b/) || [])[1];
+            var saved = null; try { saved = localStorage.getItem(KEY); } catch (e) { }
+            var htmlLang = (document.documentElement && document.documentElement.getAttribute('lang')) || null;
+            var lang = m || saved || htmlLang || 'en';
+            lang = (lang === 'fr' || lang === 'zh') ? lang : 'en';
+
+            document.documentElement.setAttribute('lang', lang);
+            try { localStorage.setItem(KEY, lang); } catch (e) { }
+
+            window.__LANG = lang;
+            window.__SUDOKU_STR = window.__SUDOKU_STR || {
+                en: {
+                    title: 'Sudoku Game',
+                    beginner: 'Beginner',
+                    easy: 'Easy',
+                    normal: 'Normal',
+                    hard: 'Hard',
+                    expert: 'Expert',
+                    errors: 'Errors',
+                    time: 'Time',
+                    newGame: 'New Game',
+                    notesMode: 'Notes Mode',
+                    notesOn: 'Notes: On',
+                    notesOff: 'Notes: Off',
+                    congrats: 'Congratulations! You solved the puzzle!'
+                },
+                fr: {
+                    title: 'Jeu de Sudoku',
+                    beginner: 'Débutant',
+                    easy: 'Facile',
+                    normal: 'Normal',
+                    hard: 'Difficile',
+                    expert: 'Expert',
+                    errors: 'Erreurs',
+                    time: 'Temps',
+                    newGame: 'Nouvelle partie',
+                    notesMode: 'Mode Notes',
+                    notesOn: 'Notes : Activées',
+                    notesOff: 'Notes : Désactivées',
+                    congrats: 'Bravo ! Vous avez résolu la grille !'
+                },
+                zh: {
+                    title: '数独游戏',
+                    beginner: '新手',
+                    easy: '简单',
+                    normal: '普通',
+                    hard: '困难',
+                    expert: '专家',
+                    errors: '错误',
+                    time: '时间',
+                    newGame: '新游戏',
+                    notesMode: '注释模式',
+                    notesOn: '注释：开',
+                    notesOff: '注释：关',
+                    congrats: '恭喜！你解出了数独！'
+                }
+            };
+
+            // Page <title>
+            document.title = (window.__SUDOKU_STR[lang] || window.__SUDOKU_STR.en).title;
+        })();
+    </script>
+</head>
+
+<body>
+    <link rel="stylesheet" href="platform/platform.css">
+    <script src="platform/platform.js"></script>
+
+    <div class="container">
+        <h1 id="title">Sudoku Game</h1>
+        <hr>
+
+        <div class="game-controls">
+            <div class="difficulty-selector">
+                <button class="difficulty-btn active" data-level="beginner">Beginner</button>
+                <button class="difficulty-btn" data-level="easy">Easy</button>
+                <button class="difficulty-btn" data-level="normal">Normal</button>
+                <button class="difficulty-btn" data-level="hard">Hard</button>
+                <button class="difficulty-btn" data-level="expert">Expert</button>
+            </div>
+        </div>
+
+        <div class="game-info">
+            <div id="errors">Errors: 0</div>
+            <div id="timer">Time: 00:00</div>
+        </div>
+
+        <div id="board"></div>
+
+        <div id="digits"></div>
+
+        <div class="game-buttons">
+            <button id="new-game-btn">New Game</button>
+            <button id="notes-btn">Notes Mode</button>
+        </div>
+
+        <div id="message" class="message success">Congratulations! You solved the puzzle!</div>
+    </div>
+    <script>
+        (function hydrateUI() {
+            var S = window.__SUDOKU_STR[window.__LANG] || window.__SUDOKU_STR.en;
+
+            // Title
+            var title = document.getElementById('title');
+            if (title) title.textContent = S.title;
+
+            // Difficulty buttons (by data-level)
+            var map = {
+                beginner: S.beginner,
+                easy: S.easy,
+                normal: S.normal,
+                hard: S.hard,
+                expert: S.expert
+            };
+            document.querySelectorAll('.difficulty-btn').forEach(function (btn) {
+                var key = btn.getAttribute('data-level');
+                if (map[key]) btn.textContent = map[key];
+                btn.setAttribute('aria-label', map[key] || btn.textContent);
+            });
+
+            // Errors & timer labels – set initial values with localized prefixes
+            var errors = document.getElementById('errors');
+            if (errors) errors.textContent = S.errors + ': 0';
+
+            var timer = document.getElementById('timer');
+            if (timer) timer.textContent = S.time + ': 00:00';
+
+            // Action buttons
+            var newGame = document.getElementById('new-game-btn');
+            if (newGame) newGame.textContent = S.newGame;
+
+            var notesBtn = document.getElementById('notes-btn');
+            if (notesBtn) {
+                notesBtn.textContent = S.notesMode;                 // default label
+                notesBtn.setAttribute('data-label-on', S.notesOn); // handy for sudoku.js toggles
+                notesBtn.setAttribute('data-label-off', S.notesOff);
+            }
+
+            // Win message text
+            var msg = document.getElementById('message');
+            if (msg) msg.textContent = S.congrats;
+
+            // Small helper you can call anywhere:
+            window.__SUDOKU_T = function (key) {
+                var S2 = window.__SUDOKU_STR[window.__LANG] || window.__SUDOKU_STR.en;
+                return S2[key] || key;
+            };
+        })();
+    </script>
+    <script>
+        // ---- i18n additions (sound labels) ------------------------------------------
+        (function () {
+            const STR = window.__SUDOKU_STR;
+            function set(l, k, v) { if (!STR[l][k]) STR[l][k] = v; }
+            set('en', 'soundOn', 'Sound: On'); set('en', 'soundOff', 'Sound: Off');
+            set('fr', 'soundOn', 'Son : Activé'); set('fr', 'soundOff', 'Son : Coupé');
+            set('zh', 'soundOn', '声音：开'); set('zh', 'soundOff', '声音：关');
+        })();
+
+        (function () {
+            // ---- PlatformSDK glue -------------------------------------------
+            const SDK = {
+                add(pts, msg) { try { window.PlatformSDK && PlatformSDK.addPoints(pts, msg); } catch { } },
+                end() { try { window.PlatformSDK && PlatformSDK.endGame(); } catch { } }
+            };
+
+            // ---- Local state (no global "difficulty") ------------------------
+            const state = { runStart: performance.now(), diff: 'beginner' };
+            const MULT = { beginner: 1, easy: 1, normal: 2, hard: 3, expert: 4 };
+
+            const now = () => performance.now();
+            const msToClock = (ms) => {
+                const s = Math.floor(ms / 1000), m = Math.floor(s / 60), s2 = s % 60;
+                return `${String(m).padStart(2, '0')}:${String(s2).padStart(2, '0')}`;
+            };
+
+            function startRun(level) {
+                state.runStart = now();
+                if (level) state.diff = level;
+                // use the sound module from sudoku.js
+                try { window.SndSudoku && SndSudoku.play && (SndSudoku.play.newGame?.() || SndSudoku.play.new?.()); } catch { }
+            }
+
+            function finishRun(extraMsg) {
+                const elapsed = now() - state.runStart;
+                const mult = MULT[state.diff] || 1;
+                const bonus = Math.max(0, 120 - Math.round(elapsed / 1000));
+                const points = 20 * mult + bonus;
+                SDK.add(points, `Sudoku: cleared (${state.diff}) in ${msToClock(elapsed)}${extraMsg ? ` – ${extraMsg}` : ''}`);
+                try { window.SndSudoku && SndSudoku.play && SndSudoku.play.win?.(); } catch { }
+                SDK.end();
+            }
+
+            // Events
+            document.addEventListener('sudoku:new', (e) => {
+                const lvl = e.detail && e.detail.level;
+                startRun(lvl || (document.querySelector('.difficulty-btn.active')?.dataset.level) || 'beginner');
+            });
+            document.addEventListener('sudoku:correct', () => {
+                const mult = MULT[state.diff] || 1;
+                try { SndSudoku?.play?.inputGood?.(1); } catch { }
+                SDK.add(1 * mult, 'Sudoku: correct placement');
+            });
+            document.addEventListener('sudoku:error', () => { try { SndSudoku?.play?.conflict?.(); } catch { } });
+            document.addEventListener('sudoku:note', () => { try { SndSudoku?.play?.inputNote?.(); } catch { } });
+            document.addEventListener('sudoku:complete', (e) => {
+                const extra = e.detail && typeof e.detail.errors === 'number' ? `errors=${e.detail.errors}` : '';
+                finishRun(extra);
+            });
+
+            // Public API for sudoku.js
+            window.SudokuSDK = {
+                correct() { document.dispatchEvent(new CustomEvent('sudoku:correct')); },
+                error() { document.dispatchEvent(new CustomEvent('sudoku:error')); },
+                note() { document.dispatchEvent(new CustomEvent('sudoku:note')); },
+                complete(d) { document.dispatchEvent(new CustomEvent('sudoku:complete', { detail: d || {} })); },
+                new(level) { document.dispatchEvent(new CustomEvent('sudoku:new', { detail: { level } })); }
+            };
+
+            // End session if tab closes mid-game
+            window.addEventListener('beforeunload', () => SDK.end());
+        })();
+    </script>
+    <script src="sudoku.js"></script>
+</body>
+
+</html>

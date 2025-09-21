@@ -1,16 +1,51 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-    <title>完善版吃豆人</title>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="./pacman-favicon.ico">
+    <title>Pacman</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Persist language BEFORE paint (same as portal) -->
+    <script>
+        (function () {
+            var KEY = 'portal.lang';
+            var m = (location.search.match(/[?&]lang=(en|fr|zh)\b/) || [])[1];
+            var saved = localStorage.getItem(KEY);
+            var lang = m || saved || 'en';
+            document.documentElement.setAttribute('lang', lang);
+            localStorage.setItem(KEY, lang);
+            // Set a localized <title>
+            var titles = { en: 'Pacman', fr: 'Pacman', zh: '吃豆人' };
+            document.title = titles[lang] || titles.en;
+        })();
+    </script>
+
     <style>
         body {
-            background-color: #000;
+            background: #000;
+            margin: 0;
+            font-family: Arial, sans-serif;
         }
+
+        /* Optional: use hidden headings per language (for screen readers / consistency) */
+        :root [lang] {
+            display: none;
+        }
+
+        html[lang="en"] [lang="en"],
+        html[lang="fr"] [lang="fr"],
+        html[lang="zh"] [lang="zh"] {
+            display: block;
+        }
+
         canvas {
             border: 2px solid #000;
             display: block;
             margin: 20px auto;
         }
+
         .game-container {
             display: flex;
             flex-direction: row;
@@ -36,22 +71,18 @@
             height: 80px;
             border: 0;
             background: #666;
-            color: white;
+            color: #fff;
             font-size: 32px;
             cursor: pointer;
             position: relative;
             padding: 0;
             image-rendering: pixelated;
-            box-shadow: 
-                inset -4px -4px 0 0 #444,
-                inset 4px 4px 0 0 #888;
+            box-shadow: inset -4px -4px 0 0 #444, inset 4px 4px 0 0 #888;
         }
 
         .gamepad button:active {
             background: #555;
-            box-shadow: 
-                inset 4px 4px 0 0 #444,
-                inset -4px -4px 0 0 #888;
+            box-shadow: inset 4px 4px 0 0 #444, inset -4px -4px 0 0 #888;
             transform: translate(2px, 2px);
         }
 
@@ -90,17 +121,28 @@
             margin-left: 6px;
         }
 
-        .gamepad .up { grid-area: 1/2/2/3; }
-        .gamepad .left { grid-area: 2/1/3/2; }
-        .gamepad .right { grid-area: 2/3/3/4; }
-        .gamepad .down { grid-area: 3/2/4/3; }
+        .gamepad .up {
+            grid-area: 1/2/2/3;
+        }
 
-        @media (max-width: 768px) {
+        .gamepad .left {
+            grid-area: 2/1/3/2;
+        }
+
+        .gamepad .right {
+            grid-area: 2/3/3/4;
+        }
+
+        .gamepad .down {
+            grid-area: 3/2/4/3;
+        }
+
+        @media (max-width:768px) {
             .game-container {
                 flex-direction: column;
                 gap: 20px;
             }
-            
+
             canvas {
                 max-width: 100%;
                 height: auto;
@@ -119,7 +161,41 @@
         }
     </style>
 </head>
+
 <body>
+    <link rel="stylesheet" href="platform/platform.css">
+    <script src="platform/platform.js"></script>
+    <script>PlatformSDK.startGame('PACMAN');</script> <!-- Use a unique ID per game -->
+    <script>
+        // We just started a session on load.
+        window._pmSession = !!window.PlatformSDK;
+
+        function pmEnd() {
+            try { if (window.PlatformSDK && window._pmSession) { PlatformSDK.endGame(); window._pmSession = false; } } catch { }
+        }
+        function pmStart() {
+            try { if (window.PlatformSDK && !window._pmSession) { PlatformSDK.startGame('PACMAN'); window._pmSession = true; } } catch { }
+        }
+
+        // Light throttle so pellet spam doesn’t flood the pipe
+        var _pmLast = 0;
+        function pmAdd(n, why) {
+            if (!window.PlatformSDK) return;
+            var now = Date.now();
+            if (n <= 1 && now - _pmLast < 300) return; // throttle 1-point events
+            _pmLast = now;
+            PlatformSDK.addPoints(n, why);
+        }
+
+        // End the session if the tab closes
+        window.addEventListener('beforeunload', pmEnd);
+    </script>
+
+    <!-- Optional language headings (not shown on screen, but keeps parity with other pages) -->
+    <h1 lang="en" style="color:#fff; text-align:center; display:none;">Pacman</h1>
+    <h1 lang="fr" style="color:#fff; text-align:center; display:none;">Pacman</h1>
+    <h1 lang="zh" style="color:#fff; text-align:center; display:none;">吃豆人</h1>
+
     <div class="game-container">
         <canvas id="gameCanvas" width="560" height="620"></canvas>
         <div class="gamepad">
@@ -128,8 +204,118 @@
             <button class="right"></button>
             <button class="down"></button>
         </div>
+        <button id="soundBtn"
+            style="color:#fff;background:#222;border:1px solid #555;padding:10px 14px;border-radius:6px;cursor:pointer">
+            Sound: On
+        </button>
     </div>
     <script>
+        // --- Tiny synthy SFX for Pacman (no audio files) ---------------------------
+        const SndPacman = (() => {
+            let ctx = null, muted = false, inited = false, wakaFlip = false, powerTimer = null;
+
+            function ensure() { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+            function unlock() { ensure(); if (ctx && ctx.state === 'suspended') ctx.resume(); }
+            function out() { return ctx.destination; }
+
+            function blip({ freq = 440, dur = 0.08, type = 'square', vol = 0.07, detune = 0 }) {
+                if (muted) return;
+                ensure(); if (!ctx) return;
+                const t0 = ctx.currentTime;
+                const o = ctx.createOscillator();
+                const g = ctx.createGain();
+                o.type = type;
+                o.frequency.value = freq;
+                o.detune.value = detune;
+                g.gain.setValueAtTime(0, t0);
+                g.gain.linearRampToValueAtTime(vol, t0 + 0.01);
+                g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+                o.connect(g); g.connect(out());
+                o.start(t0); o.stop(t0 + dur);
+            }
+
+            function noise(dur = 0.28, vol = 0.14) {
+                if (muted) return;
+                ensure(); if (!ctx) return;
+                const n = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
+                const data = n.getChannelData(0);
+                for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.6;
+                const src = ctx.createBufferSource();
+                const g = ctx.createGain();
+                src.buffer = n;
+                g.gain.value = vol;
+                src.connect(g); g.connect(out());
+                const t0 = ctx.currentTime;
+                g.gain.setValueAtTime(vol, t0);
+                g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+                src.start(); src.stop(t0 + dur);
+            }
+
+            function chord(freqs, step = 70, type = 'triangle', vol = 0.07, dur = 0.1) {
+                if (muted) return;
+                freqs.forEach((f, i) => setTimeout(() => blip({ freq: f, dur, type, vol }), i * step));
+            }
+
+            function startPowerLoop() {
+                if (muted || powerTimer) return;
+                ensure(); if (!ctx) return;
+                powerTimer = setInterval(() => blip({ freq: 300, dur: 0.06, type: 'triangle', vol: 0.05 }), 180);
+            }
+            function stopPowerLoop() {
+                if (powerTimer) { clearInterval(powerTimer); powerTimer = null; }
+            }
+
+            const play = {
+                start() { chord([440, 660], 80); },
+                pellet() { wakaFlip = !wakaFlip; blip({ freq: wakaFlip ? 420 : 360, dur: 0.05, type: 'square', vol: 0.06 }); },
+                power() { chord([523, 659, 784], 90); startPowerLoop(); },
+                powerEnd() { stopPowerLoop(); },
+                ghost() { blip({ freq: 620, dur: 0.12, type: 'square', vol: 0.08 }); setTimeout(() => blip({ freq: 440, dur: 0.12, type: 'square', vol: 0.07 }), 66); },
+                death() { noise(0.3, 0.16); blip({ freq: 220, dur: 0.25, type: 'sawtooth', vol: 0.08 }); },
+                over() { chord([500, 380, 300], 120, 'square', 0.07, 0.12); },
+            };
+
+            function updateBtn() {
+                const B = document.getElementById('soundBtn');
+                if (!B) return;
+                const i18n = {
+                    en: { on: 'Sound: On', off: 'Sound: Off' },
+                    fr: { on: 'Son : Activé', off: 'Son : Coupé' },
+                    zh: { on: '声音：开', off: '声音：关' }
+                };
+                const lang = document.documentElement.getAttribute('lang') || 'en';
+                const L = i18n[lang] || i18n.en;
+                B.textContent = muted ? L.off : L.on;
+                B.setAttribute('aria-pressed', muted ? 'true' : 'false');
+            }
+
+            function toggle() { muted = !muted; updateBtn(); if (muted) stopPowerLoop(); }
+            function init() {
+                if (inited) return; inited = true;
+                updateBtn();
+                // unlock audio on first user gesture (mobile)
+                ['keydown', 'mousedown', 'touchstart'].forEach(ev =>
+                    window.addEventListener(ev, unlock, { once: true, passive: true })
+                );
+            }
+
+            return { play, toggle, init };
+        })();
+    </script>
+
+    <script>
+        // --- i18n for canvas/alerts ---
+        function L() { return document.documentElement.getAttribute('lang') || 'en'; }
+        const I18N = {
+            en: { score: 'Score', lives: 'Lives', gameOver: 'Game Over! Score: {n}' },
+            fr: { score: 'Score', lives: 'Vies', gameOver: 'Partie terminée ! Score : {n}' },
+            zh: { score: '分数', lives: '生命', gameOver: '游戏结束！分数：{n}' }
+        };
+        function t(key, vars) {
+            const s = (I18N[L()] && I18N[L()][key]) || I18N.en[key] || key;
+            return s.replace(/\{(\w+)\}/g, (_, k) => vars && (k in vars) ? vars[k] : '{' + k + '}');
+        }
+
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const CELL_SIZE = 20;
@@ -137,45 +323,45 @@
         const GRID_HEIGHT = 31;
         let pacmanMoveCounter = 0;
         const pacmanMoveInterval = 8;
+
         // 0=通道, 1=墙, 2=普通豆子, 3=能量豆
         let map = [
-            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-            [1,2,2,2,2,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,2,2,2,2,1],
-            [1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,2,1],
-            [1,3,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,3,1],
-            [1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,2,1],
-            [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-            [1,2,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,2,1],
-            [1,2,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,2,1],
-            [1,2,2,2,2,2,2,1,1,2,2,2,2,1,1,2,2,2,2,1,1,2,2,2,2,2,2,1],
-            [1,1,1,1,1,1,2,1,1,1,1,1,0,1,1,0,1,1,1,1,1,2,1,1,1,1,1,1],
-            [1,1,1,1,1,1,2,1,1,1,1,1,0,1,1,0,1,1,1,1,1,2,1,1,1,1,1,1],
-            [1,1,1,1,1,1,2,1,1,0,0,0,0,0,0,0,0,0,0,1,1,2,1,1,1,1,1,1],
-            [1,1,1,1,1,1,2,1,1,0,1,1,1,0,0,1,1,1,0,1,1,2,1,1,1,1,1,1],
-            [1,1,1,1,1,1,2,1,1,0,1,0,0,0,0,0,0,1,0,1,1,2,1,1,1,1,1,1],
-            [0,0,0,0,0,0,2,0,0,0,1,0,0,0,0,0,0,1,0,0,0,2,0,0,0,0,0,0],
-            [1,1,1,1,1,1,2,1,1,0,1,0,0,0,0,0,0,1,0,1,1,2,1,1,1,1,1,1],
-            [1,1,1,1,1,1,2,1,1,0,1,1,1,1,1,1,1,1,0,1,1,2,1,1,1,1,1,1],
-            [1,1,1,1,1,1,2,1,1,0,0,0,0,0,0,0,0,0,0,1,1,2,1,1,1,1,1,1],
-            [1,1,1,1,1,1,2,1,1,0,1,1,1,1,1,1,1,1,0,1,1,2,1,1,1,1,1,1],
-            [1,1,1,1,1,1,2,1,1,0,1,1,1,1,1,1,1,1,0,1,1,2,1,1,1,1,1,1],
-            [1,2,2,2,2,2,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,2,2,2,2,2,2,1],
-            [1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,2,1],
-            [1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,2,1],
-            [1,3,2,2,1,1,2,2,2,2,2,2,2,0,0,2,2,2,2,2,2,2,1,1,2,2,3,1],
-            [1,1,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1,2,1,1,1],
-            [1,1,1,2,1,1,2,1,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1,2,1,1,1],
-            [1,2,2,2,2,2,2,1,1,2,2,2,2,1,1,2,2,2,2,1,1,2,2,2,2,2,2,1],
-            [1,2,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,2,1],
-            [1,2,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,2,1],
-            [1,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,1],
-            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+            [1, 2, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 2, 1],
+            [1, 3, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 3, 1],
+            [1, 2, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 2, 1],
+            [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+            [1, 2, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 2, 1],
+            [1, 2, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 2, 1],
+            [1, 2, 2, 2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 1],
+            [1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 2, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 1, 2, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 2, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 2, 1, 1, 1, 1, 1, 1],
+            [0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0],
+            [1, 1, 1, 1, 1, 1, 2, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 2, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 2, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 2, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 2, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 2, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 2, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 2, 1, 1, 1, 1, 1, 1],
+            [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+            [1, 2, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 2, 1],
+            [1, 2, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 2, 1],
+            [1, 3, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 2, 3, 1],
+            [1, 1, 1, 2, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 2, 1, 1, 1],
+            [1, 1, 1, 2, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 2, 1, 1, 1],
+            [1, 2, 2, 2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 1],
+            [1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1],
+            [1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1],
+            [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
         ];
 
         let pacman = {
-            x: 13,
-            y: 23,
-            direction: 0, // 0=右, 1=下, 2=左, 3=上
+            x: 13, y: 23,
+            direction: 0,  // 0=right,1=down,2=left,3=up
             nextDirection: 0,
             score: 0,
             lives: 3,
@@ -184,30 +370,30 @@
         };
 
         let ghosts = [
-            {x: 13, y: 11, direction: 0, color: 'red', mode: 'scatter'},
-            {x: 14, y: 11, direction: 0, color: 'pink', mode: 'scatter'},
-            {x: 13, y: 13, direction: 0, color: 'cyan', mode: 'scatter'},
-            {x: 14, y: 13, direction: 0, color: 'orange', mode: 'scatter'}
+            { x: 13, y: 11, direction: 0, color: 'red', mode: 'scatter' },
+            { x: 14, y: 11, direction: 0, color: 'pink', mode: 'scatter' },
+            { x: 13, y: 13, direction: 0, color: 'cyan', mode: 'scatter' },
+            { x: 14, y: 13, direction: 0, color: 'orange', mode: 'scatter' }
         ];
 
         let ghostMoveCounter = 0;
         const ghostMoveInterval = 10;
 
         function drawMap() {
-            for(let y = 0; y < GRID_HEIGHT; y++) {
-                for(let x = 0; x < GRID_WIDTH; x++) {
-                    if(map[y][x] === 1) {
+            for (let y = 0; y < GRID_HEIGHT; y++) {
+                for (let x = 0; x < GRID_WIDTH; x++) {
+                    if (map[y][x] === 1) {
                         ctx.fillStyle = 'blue';
                         ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-                    } else if(map[y][x] === 2) {
+                    } else if (map[y][x] === 2) {
                         ctx.fillStyle = 'yellow';
                         ctx.beginPath();
-                        ctx.arc(x * CELL_SIZE + CELL_SIZE/2, y * CELL_SIZE + CELL_SIZE/2, 2, 0, Math.PI * 2);
+                        ctx.arc(x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 2, 0, Math.PI * 2);
                         ctx.fill();
-                    } else if(map[y][x] === 3) {
+                    } else if (map[y][x] === 3) {
                         ctx.fillStyle = 'yellow';
                         ctx.beginPath();
-                        ctx.arc(x * CELL_SIZE + CELL_SIZE/2, y * CELL_SIZE + CELL_SIZE/2, 4, 0, Math.PI * 2);
+                        ctx.arc(x * CELL_SIZE + CELL_SIZE / 2, y * CELL_SIZE + CELL_SIZE / 2, 4, 0, Math.PI * 2);
                         ctx.fill();
                     }
                 }
@@ -217,27 +403,27 @@
         function drawPacman() {
             ctx.fillStyle = 'yellow';
             ctx.beginPath();
-            let mouth = 0.2 * Math.PI * Math.sin(Date.now() / 100); // 嘴巴动画
-            ctx.arc(pacman.x * CELL_SIZE + CELL_SIZE/2, 
-                   pacman.y * CELL_SIZE + CELL_SIZE/2,
-                   CELL_SIZE/2 - 2,
-                   mouth + pacman.direction * Math.PI/2,
-                   Math.PI * 2 - mouth + pacman.direction * Math.PI/2);
-            ctx.lineTo(pacman.x * CELL_SIZE + CELL_SIZE/2,
-                      pacman.y * CELL_SIZE + CELL_SIZE/2);
+            let mouth = 0.2 * Math.PI * Math.sin(Date.now() / 100);
+            ctx.arc(
+                pacman.x * CELL_SIZE + CELL_SIZE / 2,
+                pacman.y * CELL_SIZE + CELL_SIZE / 2,
+                CELL_SIZE / 2 - 2,
+                mouth + pacman.direction * Math.PI / 2,
+                Math.PI * 2 - mouth + pacman.direction * Math.PI / 2
+            );
+            ctx.lineTo(pacman.x * CELL_SIZE + CELL_SIZE / 2, pacman.y * CELL_SIZE + CELL_SIZE / 2);
             ctx.fill();
         }
 
         function drawGhosts() {
             ghosts.forEach(ghost => {
-                ctx.fillStyle = ghost.color;
-                if(pacman.powerMode) {
-                    ctx.fillStyle = 'blue';
-                }
+                ctx.fillStyle = pacman.powerMode ? 'blue' : ghost.color;
                 ctx.beginPath();
-                ctx.arc(ghost.x * CELL_SIZE + CELL_SIZE/2,
-                       ghost.y * CELL_SIZE + CELL_SIZE/2,
-                       CELL_SIZE/2 - 2, 0, Math.PI, true);
+                ctx.arc(
+                    ghost.x * CELL_SIZE + CELL_SIZE / 2,
+                    ghost.y * CELL_SIZE + CELL_SIZE / 2,
+                    CELL_SIZE / 2 - 2, 0, Math.PI, true
+                );
                 ctx.lineTo(ghost.x * CELL_SIZE, ghost.y * CELL_SIZE + CELL_SIZE);
                 ctx.lineTo(ghost.x * CELL_SIZE + CELL_SIZE, ghost.y * CELL_SIZE + CELL_SIZE);
                 ctx.fill();
@@ -250,90 +436,73 @@
             ghostMoveCounter = 0;
 
             ghosts.forEach(ghost => {
-                let possibleDirections = [];
-                if(map[ghost.y][ghost.x-1] !== 1) possibleDirections.push(2);
-                if(map[ghost.y][ghost.x+1] !== 1) possibleDirections.push(0);
-                if(map[ghost.y-1][ghost.x] !== 1) possibleDirections.push(3);
-                if(map[ghost.y+1][ghost.x] !== 1) possibleDirections.push(1);
+                let possible = [];
+                if (map[ghost.y][ghost.x - 1] !== 1) possible.push(2);
+                if (map[ghost.y][ghost.x + 1] !== 1) possible.push(0);
+                if (map[ghost.y - 1] && map[ghost.y - 1][ghost.x] !== 1) possible.push(3);
+                if (map[ghost.y + 1] && map[ghost.y + 1][ghost.x] !== 1) possible.push(1);
 
-                if(possibleDirections.length > 0) {
-                    if(ghost.mode === 'scatter' || pacman.powerMode) {
-                                            ghost.direction = possibleDirections[Math.floor(Math.random() * possibleDirections.length)];
-                } else { // 常规追逐模式
-                    let dx = pacman.x - ghost.x;
-                    let dy = pacman.y - ghost.y;
-
-                    if(ghost.color === 'red') {
-                        // 直接追逐模式
-                    } else if(ghost.color === 'pink') {
-                        dx += pacman.direction === 0 ? 4 : pacman.direction === 2 ? -4 : 0;
-                        dy += pacman.direction === 1 ? 4 : pacman.direction === 3 ? -4 : 0;
-                    } else if(ghost.color === 'cyan') {
-                        // 移动到玩家两倍距离的策略点
-                        dx = (pacman.x - ghost.x) * 2;
-                        dy = (pacman.y - ghost.y) * 2;
-                    } else if(ghost.color === 'orange') {
-                        // 随机移动
-                        ghost.direction = possibleDirections[Math.floor(Math.random() * possibleDirections.length)];
-                    }
-
-                    if (Math.abs(dx) > Math.abs(dy)) {
-                        ghost.direction = dx > 0 ? 0 : 2;
+                if (possible.length > 0) {
+                    if (ghost.mode === 'scatter' || pacman.powerMode) {
+                        ghost.direction = possible[Math.floor(Math.random() * possible.length)];
                     } else {
-                        ghost.direction = dy > 0 ? 1 : 3;
+                        let dx = pacman.x - ghost.x;
+                        let dy = pacman.y - ghost.y;
+                        if (ghost.color === 'pink') {
+                            dx += pacman.direction === 0 ? 4 : pacman.direction === 2 ? -4 : 0;
+                            dy += pacman.direction === 1 ? 4 : pacman.direction === 3 ? -4 : 0;
+                        } else if (ghost.color === 'cyan') {
+                            dx = (pacman.x - ghost.x) * 2;
+                            dy = (pacman.y - ghost.y) * 2;
+                        } else if (ghost.color === 'orange') {
+                            ghost.direction = possible[Math.floor(Math.random() * possible.length)];
+                        }
+                        if (Math.abs(dx) > Math.abs(dy)) {
+                            ghost.direction = dx > 0 ? 0 : 2;
+                        } else {
+                            ghost.direction = dy > 0 ? 1 : 3;
+                        }
                     }
+
+                    if (ghost.direction === 0) ghost.x++;
+                    if (ghost.direction === 1) ghost.y++;
+                    if (ghost.direction === 2) ghost.x--;
+                    if (ghost.direction === 3) ghost.y--;
+
+                    // Wrap tunnels
+                    if (ghost.x < 0) ghost.x = GRID_WIDTH - 1;
+                    if (ghost.x >= GRID_WIDTH) ghost.x = 0;
                 }
-
-                if (ghost.direction === 0) ghost.x++;
-                if (ghost.direction === 1) ghost.y++;
-                if (ghost.direction === 2) ghost.x--;
-                if (ghost.direction === 3) ghost.y--;
-
-                // 增加穿过通道
-                if (ghost.x < 0) ghost.x = GRID_WIDTH - 1;
-                if (ghost.x >= GRID_WIDTH) ghost.x = 0;
-        }});
-            
+            });
         }
 
         function movePacman() {
             pacmanMoveCounter++;
             if (pacmanMoveCounter < pacmanMoveInterval) return;
             pacmanMoveCounter = 0;
-            let nextX = pacman.x;
-            let nextY = pacman.y;
+            let nextX = pacman.x, nextY = pacman.y;
 
             if (pacman.nextDirection === 0) nextX++;
             if (pacman.nextDirection === 2) nextX--;
             if (pacman.nextDirection === 1) nextY++;
             if (pacman.nextDirection === 3) nextY--;
 
-            // 环形通道
-            if(nextX < 0) nextX = GRID_WIDTH - 1;
-            if(nextX >= GRID_WIDTH) nextX = 0;
+            // Wrap tunnel
+            if (nextX < 0) nextX = GRID_WIDTH - 1;
+            if (nextX >= GRID_WIDTH) nextX = 0;
 
-            if (map[nextY][nextX] !== 1) {
+            if (map[nextY] && map[nextY][nextX] !== 1) {
                 pacman.direction = pacman.nextDirection;
-                if (map[nextY][nextX] === 2) {
-                    pacman.score += 10;
-                    map[nextY][nextX] = 0;
-                } else if (map[nextY][nextX] === 3) {
-                    pacman.score += 50;
-                    pacman.powerMode = true;
-                    pacman.powerModeTime = 500;
-                    map[nextY][nextX] = 0;
+                if (map[nextY][nextX] === 2) { pacman.score += 10; map[nextY][nextX] = 0; SndPacman.play.pellet(); pmAdd(1, 'Pacman: pellet'); }
+                else if (map[nextY][nextX] === 3) {
+                    pacman.score += 50; pacman.powerMode = true; pacman.powerModeTime = 500; map[nextY][nextX] = 0; SndPacman.play.power(); pmAdd(1, 'Pacman: power pellet');
                 }
-
-                pacman.x = nextX;
-                pacman.y = nextY;
+                pacman.x = nextX; pacman.y = nextY;
             }
 
             if (pacman.powerMode) {
                 pacman.powerModeTime--;
-                if (pacman.powerModeTime <= 0) {
-                    pacman.powerMode = false;
-                    ghosts.forEach(g => g.mode = 'chase');
-                }
+                if (pacman.powerModeTime <= 0) { pacman.powerMode = false; ghosts.forEach(g => g.mode = 'chase'); SndPacman.play.powerEnd(); }
             }
         }
 
@@ -342,17 +511,18 @@
                 if (ghost.x === pacman.x && ghost.y === pacman.y) {
                     if (pacman.powerMode) {
                         pacman.score += 200;
-                        ghost.x = 13;
-                        ghost.y = 14;
-                        ghost.mode = 'scatter';
+                        ghost.x = 13; ghost.y = 14; ghost.mode = 'scatter';
+                        SndPacman.play.ghost();
+                        pmAdd(1, 'Pacman: ghost');
                     } else {
                         pacman.lives--;
+                        SndPacman.play.death();
                         if (pacman.lives <= 0) {
-                            alert(`Game Over! Score: ${pacman.score}`);
+                            SndPacman.play.over();
+                            alert(t('gameOver', { n: pacman.score }));
                             resetGame();
                         } else {
-                            pacman.x = 13;
-                            pacman.y = 23;
+                            pacman.x = 13; pacman.y = 23;
                         }
                     }
                 }
@@ -360,32 +530,33 @@
         }
 
         function resetGame() {
+            pmStart();
             pacman.lives = 3;
             pacman.score = 0;
-            pacman.x = 13;
-            pacman.y = 23;
-            pacman.direction = 0;
+            pacman.x = 13; pacman.y = 23;
+            pacman.direction = 0; pacman.nextDirection = 0;
             pacman.powerMode = false;
 
             ghosts.forEach((ghost, i) => {
-                ghost.x = i % 2 === 0 ? 13 : 14;
-                ghost.y = i < 2 ? 11 : 13;
+                ghost.x = (i % 2 === 0) ? 13 : 14;
+                ghost.y = (i < 2) ? 11 : 13;
                 ghost.mode = 'scatter';
             });
 
-            // 恢复豆子
+            // Restore pellets (2) and power pellets at four corners (3)
             for (let y = 0; y < GRID_HEIGHT; y++) {
                 for (let x = 0; x < GRID_WIDTH; x++) {
-                    if (map[y][x] === 0) map[y][x] = (y === 3 || y === 23) && (x === 1 || x === 26) ? 3 : 2;
+                    if (map[y][x] === 0) map[y][x] = ((y === 3 || y === 23) && (x === 1 || x === 26)) ? 3 : 2;
                 }
             }
+            SndPacman.play.start();
         }
 
         function drawScoreAndLives() {
             ctx.fillStyle = 'white';
             ctx.font = '20px Arial';
-            ctx.fillText(`Score: ${pacman.score}`, 20, 590);
-            ctx.fillText(`Lives: ${pacman.lives}`, 460, 590);
+            ctx.fillText(`${t('score')}: ${pacman.score}`, 20, 590);
+            ctx.fillText(`${t('lives')}: ${pacman.lives}`, 460, 590);
         }
 
         function gameLoop() {
@@ -408,13 +579,13 @@
         });
 
         document.querySelectorAll('.gamepad button').forEach(button => {
-            ['mousedown', 'touchstart'].forEach(eventType => {
-                button.addEventListener(eventType, (e) => {
+            ['mousedown', 'touchstart'].forEach(type => {
+                button.addEventListener(type, (e) => {
                     e.preventDefault();
-                    if(button.classList.contains('right')) pacman.nextDirection = 0;
-                    if(button.classList.contains('down')) pacman.nextDirection = 1;
-                    if(button.classList.contains('left')) pacman.nextDirection = 2;
-                    if(button.classList.contains('up')) pacman.nextDirection = 3;
+                    if (button.classList.contains('right')) pacman.nextDirection = 0;
+                    if (button.classList.contains('down')) pacman.nextDirection = 1;
+                    if (button.classList.contains('left')) pacman.nextDirection = 2;
+                    if (button.classList.contains('up')) pacman.nextDirection = 3;
                 });
             });
         });
@@ -422,6 +593,12 @@
         resetGame();
         gameLoop();
     </script>
-</body>
-</html>
+    <script>
+        // Bind mute/unmute
+        document.getElementById('soundBtn').onclick = () => SndPacman.toggle();
+        SndPacman.init();
+    </script>
 
+</body>
+
+</html>

@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <script>
+        (function () {
+            var KEY = 'portal.lang';
+            var m = (location.search.match(/[?&]lang=(en|fr|zh)\b/) || [])[1];
+            var saved = localStorage.getItem(KEY);
+            var lang = m || saved || 'en';
+            document.documentElement.setAttribute('lang', lang);
+            localStorage.setItem(KEY, lang);
+
+            // Localized page title
+            var titles = { en: 'Bubble Shooter', fr: 'Tireur de bulles', zh: '泡泡龙' };
+            document.title = titles[lang] || titles.en;
+        })();
+    </script>
+    <link rel="icon" href="./bubble-shooter-favicon.ico">
+    <link rel="stylesheet" href="platform/platform.css">
+    <script src="platform/platform.js"></script>
+    <title>Bubble Shooter</title>
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            background: #c8f1dd;
+            overflow-x: hidden;
+            /* no horizontal scrollbar */
+        }
+
+        canvas {
+            display: block;
+            /* scale to viewport width; keep aspect via height:auto */
+            width: min(100%, 100vw);
+            height: auto;
+
+            /* sensible bounds */
+            max-height: calc(100vh - 160px);
+            /* leave room for UI/pad */
+            min-height: 240px;
+
+            /* center with normal flow, no absolute positioning */
+            margin: 12px auto;
+
+            /* visuals */
+            box-sizing: border-box;
+            /* border won’t cause overflow */
+            border: 2px solid #eee;
+            border-radius: 2px;
+            box-shadow: 0 1px 0 0 #f9fcfc inset, 0 2px 4px 1px rgba(0, 0, 0, .24);
+        }
+
+        #github {
+            opacity: 0;
+            display: block;
+        }
+
+        #github img {
+            position: absolute;
+            top: 0;
+            right: 0;
+            border: 0;
+            width: 15vw;
+            height: 15vw;
+        }
+
+        #sound {
+            opacity: 0;
+            width: 5vw;
+            height: 5vw;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: 100%;
+            position: absolute;
+            top: 10px;
+            left: 10px;
+        }
+
+        #sound:hover {
+            cursor: pointer;
+        }
+
+        .warning-message {
+            display: none;
+        }
+
+        /* Mobile-friendly overrides */
+        @media (max-width: 600px) {
+
+            /* Hide ribbon; keep warning hidden */
+            #github,
+            .warning-message {
+                display: none !important;
+            }
+
+            /* Make the sound button usable on mobile */
+            #sound {
+                display: block !important;
+                position: fixed;
+                top: 12px;
+                left: 12px;
+                width: 48px;
+                height: 48px;
+                z-index: 10000;
+                opacity: 1 !important;
+                /* visible even before game toggles it */
+            }
+
+            /* On-screen controls: fixed bottom-left on phones */
+            #bs-controls {
+                position: fixed;
+                left: 12px;
+                bottom: 0px;
+                z-index: 10001;
+            }
+        }
+
+        /* Shared grid for both rows: 3 columns × 4 rows (row 4 = FIRE) */
+        #bs-controls .bs-row {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(56px, 72px));
+            grid-template-rows: repeat(4, minmax(56px, 64px));
+            gap: 10px;
+            pointer-events: auto;
+            /* children accept clicks/touches */
+            justify-content: center;
+        }
+
+        /* Common button look */
+        #bs-controls .bs-row button {
+            font: 700 16px/1 system-ui, sans-serif;
+            padding: 12px 10px;
+            border-radius: 12px;
+            border: none;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, .2);
+            background: #fff;
+            touch-action: manipulation;
+        }
+
+        /* --- Play row placement --- */
+        #bs-play-controls #bs-up {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        #bs-play-controls #bs-left {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        #bs-play-controls #bs-enter {
+            grid-column: 2;
+            grid-row: 2;
+        }
+
+        /* center */
+        #bs-play-controls #bs-right {
+            grid-column: 3;
+            grid-row: 2;
+        }
+
+        #bs-play-controls #bs-down {
+            grid-column: 2;
+            grid-row: 3;
+        }
+
+        #bs-play-controls #bs-fire {
+            grid-column: 1 / span 3;
+            grid-row: 4;
+        }
+
+        /* full width bar */
+
+        /* --- Menu/Tutorial row placement (suffix -m) --- */
+        #bs-menu-controls #bs-up-m {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        #bs-menu-controls #bs-left-m {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        #bs-menu-controls #bs-enter-m {
+            grid-column: 2;
+            grid-row: 2;
+        }
+
+        /* center */
+        #bs-menu-controls #bs-right-m {
+            grid-column: 3;
+            grid-row: 2;
+        }
+
+        #bs-menu-controls #bs-down-m {
+            grid-column: 2;
+            grid-row: 3;
+        }
+
+        #bs-menu-controls #bs-fire-m {
+            grid-column: 1 / span 3;
+            grid-row: 4;
+        }
+
+        /* full width */
+
+        /* Optional: emphasize ENTER and FIRE a bit */
+        #bs-play-controls #bs-enter,
+        #bs-menu-controls #bs-enter-m {
+            padding: 12px 1px;
+        }
+
+        #bs-play-controls #bs-fire,
+        #bs-menu-controls #bs-fire-m {
+            font-size: 18px;
+        }
+
+        /* === LANGUAGE TOGGLE (match portal/Pong) === */
+        :root [lang] {
+            display: none;
+        }
+
+        html[lang="en"] [lang="en"] {
+            display: initial;
+        }
+
+        html[lang="fr"] [lang="fr"] {
+            display: initial;
+        }
+
+        html[lang="zh"] [lang="zh"] {
+            display: initial;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Phaser 2 -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@2.6.2/build/phaser.min.js"></script>
+
+    <!-- Utils (globals) -->
+    <script src="./bubble-helper.js"></script>
+    <script src="./bubble-color.js"></script>
+    <script src="./bubble-entity-map.js"></script>
+    <script src="./bubble-constants.js"></script>
+    <script src="./bubble-score-keeper.js"></script>
+
+    <!-- Entities / core classes -->
+    <script src="./bubble-boundary.js"></script>
+    <script src="./bubble-bubble.js"></script>
+    <script src="./bubble-navigation.js"></script>
+    <script src="./bubble-player.js"></script>
+    <script src="./bubble-round.js"></script>
+    <script src="./bubble-status.js"></script>
+
+    <!-- States -->
+    <script src="./bubble-load.js"></script>
+    <script src="./bubble-menu.js"></script>
+    <script src="./bubble-play.js"></script>
+    <script src="./bubble-tutorial.js"></script>
+
+    <!-- Game class (defines window.Game) -->
+    <script src="./bubble-game.js"></script>
+
+    <!-- Position controls helper -->
+    <script>
+        function positionControlsAtCanvasBottomRight(margin = 12) {
+            var wrap = document.getElementById('bs-controls');
+            var cv = (window.game && game.canvas) || document.querySelector('canvas');
+            if (!wrap || !cv) return;
+
+            var rect = cv.getBoundingClientRect();
+
+            // Measure pad
+            var prevDisplay = wrap.style.display;
+            var prevVisibility = wrap.style.visibility;
+            wrap.style.visibility = 'hidden';
+            wrap.style.display = 'block';
+            var padW = wrap.offsetWidth;
+            var padH = wrap.offsetHeight;
+            wrap.style.display = prevDisplay;
+            wrap.style.visibility = prevVisibility;
+
+            // Target bottom-right *inside the viewport* (clamp)
+            var targetLeft = window.scrollX + rect.right - padW - margin;
+            var targetTop = window.scrollY + rect.bottom - padH - margin;
+
+            var maxLeft = window.scrollX + document.documentElement.clientWidth - padW - 4;  // small safety
+            var maxTop = window.scrollY + document.documentElement.clientHeight - padH - 4;
+
+            wrap.style.position = 'absolute';
+            wrap.style.left = Math.max(window.scrollX + 4, Math.min(targetLeft, maxLeft)) + 'px';
+            wrap.style.top = Math.max(window.scrollY + 4, Math.min(targetTop, maxTop)) + 'px';
+        }
+    </script>
+    <script>
+        // Replaces: positionControlsAtCanvasBottomRight
+        function positionControlsNearCanvas(margin = 12, offsetBelow = 8) {
+            var wrap = document.getElementById('bs-controls');
+            var cv = (window.game && game.canvas) || document.querySelector('canvas');
+            if (!wrap || !cv) return;
+
+            // Measure pad
+            var prevDisplay = wrap.style.display;
+            var prevVis = wrap.style.visibility;
+            wrap.style.visibility = 'hidden';
+            wrap.style.display = 'block';
+            var padW = wrap.offsetWidth;
+            var padH = wrap.offsetHeight;
+            wrap.style.display = prevDisplay;
+            wrap.style.visibility = prevVis;
+
+            var isMobile = window.matchMedia && window.matchMedia('(max-width:600px)').matches;
+            var rect = cv.getBoundingClientRect();
+
+            if (isMobile) {
+                // 1) Reserve space so the canvas doesn't hide under the controls
+                //    (works whether canvas is absolute or flowing)
+                var reserve = padH + margin * 2;
+                document.body.style.paddingBottom = reserve + 'px';
+
+                // 2) Max-height so the canvas never collides with the pad
+                var available = Math.max(240, window.innerHeight - reserve - margin);
+                cv.style.maxHeight = available + 'px';
+
+                // 3) Pin controls bottom-left (fixed) in the viewport
+                wrap.style.position = 'fixed';
+                wrap.style.left = margin + 'px';
+                wrap.style.bottom = margin + 'px';
+                // When fixed on mobile, reserve space at the bottom so canvas never hides under pad
+                var wrap = document.getElementById('bs-controls');
+                if (wrap) {
+                    // measure pad height
+                    var prevDisp = wrap.style.display;
+                    var prevVis = wrap.style.visibility;
+                    wrap.style.visibility = 'hidden';
+                    wrap.style.display = 'block';
+                    var padH = wrap.offsetHeight;
+                    wrap.style.display = prevDisp;
+                    wrap.style.visibility = prevVis;
+
+                    document.body.style.paddingBottom = (padH + 24) + 'px'; // pad height + margin
+                }
+            } else {
+                // Desktop: sit just *below* the canvas, aligned left
+                wrap.style.position = 'absolute';
+                wrap.style.left = (window.scrollX + rect.right + margin) + 'px';
+                wrap.style.top = (window.scrollY + rect.top + offsetBelow) + 'px';
+
+                // Clean up any mobile padding if we just grew the window
+                document.body.style.paddingBottom = '';
+                cv.style.maxHeight = ''; // let Phaser + CSS drive desktop sizing
+            }
+        }
+    </script>
+    <!-- <script>
+        window.addEventListener('load', positionControlsAtCanvasBottomRight);
+        window.addEventListener('resize', positionControlsAtCanvasBottomRight);
+    </script> -->
+    <script>
+        window.addEventListener('load', positionControlsNearCanvas);
+        window.addEventListener('resize', positionControlsNearCanvas);
+    </script>
+
+    <!-- Rounds loader: load 0..50, THEN start the game once. -->
+    <script>
+        // Ensure the container exists (round files also write to this)
+        window.ROUNDS = window.ROUNDS || {};
+
+        (function loadRounds(i, max) {
+            if (i > max) {
+                // rounds ready — launch the game exactly once
+                window.game = new Game(CANVAS_WIDTH, CANVAS_HEIGHT);
+                // Start a Platform session for Bubble Shooter
+                if (window.PlatformSDK) PlatformSDK.startGame('BUBBLESHOOTER');
+
+                // If we landed already on a small viewport, force Phaser to recompute scale once
+                if (window.matchMedia && window.matchMedia('(max-width:600px)').matches) {
+                    // Let the canvas attach first
+                    setTimeout(function () {
+                        if (window.game && game.scale) {
+                            game.scale.refresh();                 // recompute ScaleManager internals
+                            window.dispatchEvent(new Event('resize')); // fire a resize so Phaser listeners run
+                        }
+                        // positionControlsAtCanvasBottomRight();  // ensure pad is placed correctly
+                        positionControlsNearCanvas();
+                    }, 0);
+                } else {
+                    // positionControlsAtCanvasBottomRight();
+                    positionControlsNearCanvas();
+                }
+                return;
+            }
+            var s = document.createElement('script');
+            // NOTE: folder name uses an underscore to match your files
+            s.src = './bubble_rounds/' + i + '.js';
+            s.onload = function () { loadRounds(i + 1, max); };
+            s.onerror = function () { console.warn('Missing round', i); loadRounds(i + 1, max); };
+            document.head.appendChild(s);
+        })(0, 50);
+    </script>
+
+    <!-- On-screen controls -->
+    <div id="bs-controls" style="display:none">
+        <!-- Play state -->
+        <div id="bs-play-controls" class="bs-row">
+            <button id="bs-up" aria-label="Up">⬆️</button>
+            <button id="bs-left" aria-label="Left">⬅️</button>
+            <button id="bs-enter" aria-label="Enter">
+                <span lang="en">ENTER</span>
+                <span lang="fr">ENTRER</span>
+                <span lang="zh">确认</span>
+            </button>
+            <button id="bs-right" aria-label="Right">➡️</button>
+            <button id="bs-down" aria-label="Down">⬇️</button>
+            <button id="bs-fire" aria-label="Fire">
+                <span lang="en">FIRE</span>
+                <span lang="fr">TIR</span>
+                <span lang="zh">发射</span>
+            </button>
+        </div>
+
+        <!-- Menu/Tutorial state -->
+        <div id="bs-menu-controls" class="bs-row" style="display:none">
+            <button id="bs-up-m" aria-label="Up">⬆️</button>
+            <button id="bs-left-m" aria-label="Left">⬅️</button>
+            <button id="bs-enter-m" aria-label="Enter">
+                <span lang="en">ENTER</span>
+                <span lang="fr">ENTRER</span>
+                <span lang="zh">确认</span>
+            </button>
+            <button id="bs-right-m" aria-label="Right">➡️</button>
+            <button id="bs-down-m" aria-label="Down">⬇️</button>
+            <button id="bs-fire-m" aria-label="Fire">
+                <span lang="en">FIRE</span>
+                <span lang="fr">TIR</span>
+                <span lang="zh">发射</span>
+            </button>
+        </div>
+    </div>
+    <script>
+        (function () {
+            var lang = document.documentElement.getAttribute('lang') || 'en';
+            var L = {
+                en: { up: 'Up', down: 'Down', left: 'Left', right: 'Right', enter: 'Enter', fire: 'Fire' },
+                fr: { up: 'Haut', down: 'Bas', left: 'Gauche', right: 'Droite', enter: 'Entrer', fire: 'Tir' },
+                zh: { up: '上', down: '下', left: '左', right: '右', enter: '确认', fire: '发射' }
+            }[lang];
+
+            function set(id, key) {
+                var el = document.getElementById(id);
+                if (el) el.setAttribute('aria-label', L[key]);
+            }
+
+            ['', '-m'].forEach(s => {
+                set('bs-up' + s, 'up');
+                set('bs-down' + s, 'down');
+                set('bs-left' + s, 'left');
+                set('bs-right' + s, 'right');
+                set('bs-enter' + s, 'enter');
+                set('bs-fire' + s, 'fire');
+            });
+        })();
+    </script>
+    <script>
+        // End the session if the user leaves the page
+        window.addEventListener('beforeunload', () => {
+            if (window.PlatformSDK) PlatformSDK.endGame();
+        });
+    </script>
+</body>
+
+</html>

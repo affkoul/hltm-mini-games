@@ -1,231 +1,529 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>俄罗斯方块游戏</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="./tetris-favicon.ico">
+    <title>Tetris</title>
+
+    <!-- Inherit language from portal BEFORE paint -->
+    <script>
+        (function () {
+            var KEY = 'portal.lang';
+            var m = (location.search.match(/[?&]lang=(en|fr|zh)\b/) || [])[1];
+            var saved = localStorage.getItem(KEY);
+            var lang = m || saved || 'en';
+            document.documentElement.setAttribute('lang', lang);
+            localStorage.setItem(KEY, lang);
+
+            // i18n
+            window.__TETRIS_I18N__ = {
+                title: { en: 'Tetris', fr: 'Tetris', zh: '俄罗斯方块游戏' },
+                score: { en: 'Score', fr: 'Score', zh: '分数' },
+                left: { en: 'Left', fr: 'Gauche', zh: '左' },
+                right: { en: 'Right', fr: 'Droite', zh: '右' },
+                down: { en: 'Down', fr: 'Bas', zh: '下' },
+                rotate: { en: 'Rotate', fr: 'Pivoter', zh: '旋转' },
+                over: { en: 'Game Over', fr: 'Partie terminée', zh: '游戏结束' },
+                again: { en: 'Play Again', fr: 'Rejouer', zh: '再玩一次' }
+            };
+            document.title = window.__TETRIS_I18N__.title[lang];
+        })();
+    </script>
+
     <style>
-#controls {
-    display: flex;
-    justify-content: center;
-    margin-top: 20px;
-}
-.button {
-    background-color: #333;
-    color: white;
-    border: none;
-    padding: 15px;
-    margin: 5px;
-    font-size: 20px;
-    cursor: pointer;
-}
+        :root [lang] {
+            display: none;
+        }
+
+        html[lang="en"] [lang="en"],
+        html[lang="fr"] [lang="fr"],
+        html[lang="zh"] [lang="zh"] {
+            display: inline;
+        }
+
         body {
             font-family: Arial, sans-serif;
             text-align: center;
+            margin: 0;
+            padding: 16px;
+            background: #f5f5f5;
         }
+
+        h1 {
+            margin: 6px 0 10px;
+        }
+
         canvas {
-            border: 1px solid black;
-            background-color: #000;
+            border: 1px solid #111;
+            background: #000;
             display: block;
-            margin: 20px auto;
+            margin: 12px auto;
+            image-rendering: pixelated;
         }
+
         #score {
-            font-size: 20px;
+            font-size: 18px;
+            margin: 6px 0 12px;
+        }
+
+        #controls {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .button {
+            background: #333;
+            color: #fff;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-size: 16px;
+            min-width: 90px;
+            cursor: pointer;
+        }
+
+        .button:active {
+            transform: translateY(1px);
+        }
+
+        /* Overlay for game over */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, .6);
+        }
+
+        .card {
+            background: #fff;
+            color: #222;
+            padding: 18px 22px;
+            border-radius: 10px;
+            min-width: 260px;
+            text-align: center;
+        }
+
+        .card h2 {
+            margin: 0 0 6px;
+        }
+
+        .card p {
+            margin: 6px 0 10px;
         }
     </style>
 </head>
-<body>
 
-    <h1>俄罗斯方块游戏</h1>
-    <canvas id="gameCanvas" width="300" height="600"></canvas>
-    <div id="score">分数: 0</div>
-<div id="controls">
-    <button class="button" id="leftBtn">左</button>
-    <button class="button" id="rightBtn">右</button>
-    <button class="button" id="downBtn">下</button>
-    <button class="button" id="rotateBtn">旋转</button>
-</div>
+<body>
+    <link rel="stylesheet" href="platform/platform.css">
+    <script src="platform/platform.js"></script>
+    <script>PlatformSDK.startGame('TETRIS');</script> <!-- Use a unique ID per game -->
+
+    <h1>
+        <span lang="en">Tetris</span>
+        <span lang="fr">Tetris</span>
+        <span lang="zh">俄罗斯方块游戏</span>
+    </h1>
+
+    <div id="score">
+        <span lang="en">Score:</span>
+        <span lang="fr">Score&nbsp;:</span>
+        <span lang="zh">分数：</span>
+        <b id="scoreVal">0</b>
+    </div>
+    <div id="side"
+        style="display:flex;gap:16px;justify-content:center;align-items:flex-start;flex-wrap:wrap;margin:6px 0 0;">
+        <canvas id="nextCanvas" width="120" height="120" style="border:1px solid #111;background:#000"></canvas>
+        <div id="bestWrap" style="font-size:14px;align-self:center;">
+            <span lang="en">Best:</span><span lang="fr">Meilleur&nbsp;:</span><span lang="zh">最佳：</span>
+            <b id="bestVal">0</b>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas" width="300" height="600" aria-label="tetris board"></canvas>
+
+    <div id="controls">
+        <button class="button" id="leftBtn">
+            <span lang="en">Left</span><span lang="fr">Gauche</span><span lang="zh">左</span>
+        </button>
+        <button class="button" id="rightBtn">
+            <span lang="en">Right</span><span lang="fr">Droite</span><span lang="zh">右</span>
+        </button>
+        <button class="button" id="downBtn">
+            <span lang="en">Down</span><span lang="fr">Bas</span><span lang="zh">下</span>
+        </button>
+        <button class="button" id="rotateBtn">
+            <span lang="en">Rotate</span><span lang="fr">Pivoter</span><span lang="zh">旋转</span>
+        </button>
+        <button class="button" id="soundBtn"></button>
+    </div>
+
+    <!-- Game Over overlay -->
+    <div class="overlay" id="over">
+        <div class="card">
+            <h2 id="overTitle"></h2>
+            <p>
+                <span lang="en">Your score:</span>
+                <span lang="fr">Votre score&nbsp;:</span>
+                <span lang="zh">你的分数：</span>
+                <b id="finalScore">0</b>
+            </p>
+            <button class="button" id="againBtn">
+                <span lang="en">Play Again</span>
+                <span lang="fr">Rejouer</span>
+                <span lang="zh">再玩一次</span>
+            </button>
+        </div>
+    </div>
+
     <script>
+        // Tiny no-file SFX for Tetris
+        const SndTetris = (() => {
+            let ctx = null, inited = false;
+            let muted = JSON.parse(localStorage.getItem('tetris.muted') || 'false');
+
+            function ensure() { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+            function unlock() { ensure(); if (ctx && ctx.state === 'suspended') ctx.resume(); }
+
+            function env(osc, t, dur = 0.1, vol = 0.06) {
+                const g = ctx.createGain();
+                g.gain.setValueAtTime(0, t);
+                g.gain.linearRampToValueAtTime(vol, t + 0.01);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+                osc.connect(g); g.connect(ctx.destination);
+            }
+            function blip(freq = 440, dur = 0.08, type = 'square', vol = 0.06) {
+                if (muted) return; ensure(); if (!ctx) return;
+                const t = ctx.currentTime, o = ctx.createOscillator();
+                o.type = type; o.frequency.value = freq; env(o, t, dur, vol);
+                o.start(t); o.stop(t + dur);
+            }
+            function sweep(from = 900, to = 220, dur = 0.18, type = 'sawtooth', vol = 0.06) {
+                if (muted) return; ensure(); if (!ctx) return;
+                const t = ctx.currentTime, o = ctx.createOscillator();
+                o.type = type; o.frequency.setValueAtTime(from, t);
+                o.frequency.exponentialRampToValueAtTime(Math.max(1, to), t + dur);
+                env(o, t, dur, vol); o.start(t); o.stop(t + dur);
+            }
+            function chord(freqs, step = 80) { if (muted) return; freqs.forEach((f, i) => setTimeout(() => blip(f, 0.09, 'triangle', 0.07), i * step)); }
+
+            const play = {
+                move() { blip(280, 0.035, 'square', 0.05); },
+                rotate() { blip(560, 0.06, 'triangle', 0.07); },
+                spawn() { blip(430, 0.05, 'triangle', 0.05); },
+                lock() { blip(200, 0.08, 'sawtooth', 0.07); },
+                line(n) {
+                    const map = { 1: [640], 2: [640, 760], 3: [640, 760, 900], 4: [760, 900, 1080, 1280] };
+                    chord(map[n] || [640], 70);
+                },
+                hard() { sweep(950, 240, 0.2, 'sawtooth', 0.06); },
+                over() { chord([420, 320, 240], 120); },
+                newGame() { chord([500, 620], 100); }
+            };
+
+            function updateBtn() {
+                const B = document.getElementById('soundBtn'); if (!B) return;
+                const lang = document.documentElement.getAttribute('lang') || 'en';
+                const L = {
+                    en: ['Sound: On', 'Sound: Off'],
+                    fr: ['Son : Activé', 'Son : Coupé'],
+                    zh: ['声音：开', '声音：关']
+                }[lang] || ['Sound: On', 'Sound: Off'];
+                B.textContent = muted ? L[1] : L[0];
+                B.setAttribute('aria-pressed', muted ? 'true' : 'false');
+            }
+            function toggle() { muted = !muted; localStorage.setItem('tetris.muted', JSON.stringify(muted)); updateBtn(); }
+            function init() {
+                if (inited) return; inited = true; updateBtn();
+                ['keydown', 'mousedown', 'touchstart'].forEach(ev => window.addEventListener(ev, unlock, { once: true, passive: true }));
+            }
+            return { play, toggle, init };
+        })();
+    </script>
+
+    <script>
+        // i18n helpers
+        const I18N = window.__TETRIS_I18N__;
+        const LANG = document.documentElement.getAttribute('lang') || 'en';
+        const t = (k) => (I18N[k] && (I18N[k][LANG] || I18N[k].en)) || '';
+
+        // Canvas & constants
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const COLS = 10;  // 游戏宽度
-        const ROWS = 20;  // 游戏高度
-        const BLOCK_SIZE = 30;  // 方块大小
-        const GAME_WIDTH = COLS * BLOCK_SIZE;
-        const GAME_HEIGHT = ROWS * BLOCK_SIZE;
+        const COLS = 10, ROWS = 20, BLOCK = 30;
+        const W = COLS * BLOCK, H = ROWS * BLOCK;
 
         const COLORS = ['#FF5733', '#33FF57', '#3357FF', '#FF33A1', '#FF8C33', '#33FFF1', '#8C33FF'];
-
-        const TETROMINOS = [
-            [[1, 1, 1, 1]],  // I
-            [[1, 1], [1, 1]],  // O
-            [[0, 1, 0], [1, 1, 1]],  // T
-            [[1, 1, 0], [0, 1, 1]],  // S
-            [[0, 1, 1], [1, 1, 0]],  // Z
-            [[1, 0, 0], [1, 1, 1]],  // L
-            [[0, 0, 1], [1, 1, 1]],  // J
+        const SHAPES = [
+            [[1, 1, 1, 1]],                 // I
+            [[1, 1], [1, 1]],               // O
+            [[0, 1, 0], [1, 1, 1]],           // T
+            [[1, 1, 0], [0, 1, 1]],           // S
+            [[0, 1, 1], [1, 1, 0]],           // Z
+            [[1, 0, 0], [1, 1, 1]],           // L
+            [[0, 0, 1], [1, 1, 1]]            // J
         ];
 
-        let board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
-        let currentPiece, currentX, currentY, score = 0;
-        let gameInterval;
+        let board, cur, cx, cy, score, loopId, dropMs = 500, softDrop = false;
+        const scoreEl = document.getElementById('scoreVal');
+        const overEl = document.getElementById('over');
+        const finalScoreEl = document.getElementById('finalScore');
+        const overTitleEl = document.getElementById('overTitle');
+        const nextCanvas = document.getElementById('nextCanvas');
 
-        function randomPiece() {
-            const idx = Math.floor(Math.random() * TETROMINOS.length);
-            return TETROMINOS[idx];
-        }
+        let best = Number(localStorage.getItem('tetris.best') || 0);
+        const bestEl = document.getElementById('bestVal');
+        const nctx = nextCanvas ? nextCanvas.getContext('2d') : null;
 
-        function drawBoard() {
-            ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+        let bag = [], nextIdx = 0;
+        function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]]; } return a; }
+        function refillBag() { bag = shuffle([0, 1, 2, 3, 4, 5, 6]); }
+        function takeFromBag() { if (!bag.length) refillBag(); return bag.pop(); }
 
-            // Draw the game board
-            for (let row = 0; row < ROWS; row++) {
-                for (let col = 0; col < COLS; col++) {
-                    if (board[row][col]) {
-                        ctx.fillStyle = board[row][col];
-                        ctx.fillRect(col * BLOCK_SIZE, row * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-                        ctx.strokeRect(col * BLOCK_SIZE, row * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-                    }
-                }
+        function drawNext(idx) {
+            if (!nctx) return;
+            nctx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+            const shape = SHAPES[idx], color = COLORS[idx];
+            const size = 24, w = shape[0].length, h = shape.length;
+            const ox = Math.floor((nextCanvas.width - w * size) / 2);
+            const oy = Math.floor((nextCanvas.height - h * size) / 2);
+            nctx.fillStyle = color; nctx.strokeStyle = '#111';
+            for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) if (shape[r][c]) {
+                const x = ox + c * size, y = oy + r * size;
+                nctx.fillRect(x, y, size, size); nctx.strokeRect(x, y, size, size);
             }
+        }
+        function updateBest() { if (bestEl) bestEl.textContent = best; }
 
-            // Draw the current piece
-            if (currentPiece) {
-                ctx.fillStyle = currentPiece.color;
-                for (let row = 0; row < currentPiece.shape.length; row++) {
-                    for (let col = 0; col < currentPiece.shape[row].length; col++) {
-                        if (currentPiece.shape[row][col]) {
-                            ctx.fillRect((currentX + col) * BLOCK_SIZE, (currentY + row) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-                            ctx.strokeRect((currentX + col) * BLOCK_SIZE, (currentY + row) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-                        }
-                    }
-                }
-            }
-
-            document.getElementById('score').textContent = `分数: ${score}`;
+        function reset() {
+            board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+            score = 0; updateScore();
+            dropMs = 500; softDrop = false;
+            refillBag(); nextIdx = takeFromBag();
+            newPiece();
+            if (loopId) cancelAnimationFrame(loopId);
+            lastTick = performance.now();
+            gameLoop();
+            overEl.style.display = 'none';
+            updateBest();
+            SndTetris.play.newGame();
         }
 
-        function rotate(piece) {
-            const newShape = piece.shape[0].map((_, index) => piece.shape.map(row => row[index]));
-            newShape.reverse();
-            return {
-                shape: newShape,
-                color: piece.color,
-            };
+        function rnd(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+        function newPiece() {
+            const idx = nextIdx;
+            cur = { shape: SHAPES[idx].map(r => r.slice()), color: COLORS[idx] };
+            cx = Math.floor(COLS / 2) - Math.floor(cur.shape[0].length / 2);
+            cy = 0;
+            if (collide(0, 0, cur.shape)) return gameOver();
+            nextIdx = takeFromBag();
+            drawNext(nextIdx);
+            SndTetris.play.spawn();
         }
 
-        function movePiece(dx, dy) {
-            currentX += dx;
-            currentY += dy;
-            if (collision()) {
-                currentX -= dx;
-                currentY -= dy;
-                return false;
-            }
-            return true;
+        function rotate(shape) {
+            const rotated = shape[0].map((_, i) => shape.map(r => r[i])).reverse();
+            return rotated;
         }
 
-        function collision() {
-            for (let row = 0; row < currentPiece.shape.length; row++) {
-                for (let col = 0; col < currentPiece.shape[row].length; col++) {
-                    if (currentPiece.shape[row][col]) {
-                        const newX = currentX + col;
-                        const newY = currentY + row;
-                        if (newX < 0 || newX >= COLS || newY >= ROWS || board[newY] && board[newY][newX]) {
-                            return true;
-                        }
-                    }
+        function collide(dx, dy, shape) {
+            for (let r = 0; r < shape.length; r++) {
+                for (let c = 0; c < shape[r].length; c++) {
+                    if (!shape[r][c]) continue;
+                    const x = cx + c + dx, y = cy + r + dy;
+                    if (x < 0 || x >= COLS || y >= ROWS) return true;
+                    if (y >= 0 && board[y][x]) return true;
                 }
             }
             return false;
         }
 
-        function mergePiece() {
-            for (let row = 0; row < currentPiece.shape.length; row++) {
-                for (let col = 0; col < currentPiece.shape[row].length; col++) {
-                    if (currentPiece.shape[row][col]) {
-                        board[currentY + row][currentX + col] = currentPiece.color;
+        function merge() {
+            for (let r = 0; r < cur.shape.length; r++) {
+                for (let c = 0; c < cur.shape[r].length; c++) {
+                    if (cur.shape[r][c]) {
+                        board[cy + r][cx + c] = cur.color;
                     }
                 }
             }
         }
 
         function clearLines() {
-            for (let row = ROWS - 1; row >= 0; row--) {
-                if (board[row].every(cell => cell !== 0)) {
-                    board.splice(row, 1);
+            let cleared = 0;
+            for (let r = ROWS - 1; r >= 0; r--) {
+                if (board[r].every(v => !!v)) {
+                    board.splice(r, 1);
                     board.unshift(Array(COLS).fill(0));
-                    score += 100;
+                    cleared++; r++;
                 }
             }
-        }
-
-        function newPiece() {
-            currentPiece = {
-                shape: randomPiece(),
-                color: COLORS[Math.floor(Math.random() * COLORS.length)],
-            };
-            currentX = Math.floor(COLS / 2) - Math.floor(currentPiece.shape[0].length / 2);
-            currentY = 0;
-
-            if (collision()) {
-                clearInterval(gameInterval);
-                alert("游戏结束");
+            if (cleared) {
+                score += [0, 100, 300, 500, 800][cleared] || cleared * 200;
+                // speed up slightly
+                dropMs = Math.max(90, dropMs - cleared * 15);
+                updateScore();
             }
+            try { PlatformSDK.addPoints(1, 'LINES'); } catch (_) { }
+            return cleared;
         }
 
-        function gameLoop() {
-            if (!movePiece(0, 1)) {
-                mergePiece();
-                clearLines();
-                newPiece();
-            }
-            drawBoard();
+        function updateScore() {
+            scoreEl.textContent = score; try { PlatformSDK.addPoints(1, 'LINES'); } catch (_) { }
         }
 
-        function handleKey(e) {
-            if (e.key === 'ArrowLeft') movePiece(-1, 0);
-            if (e.key === 'ArrowRight') movePiece(1, 0);
-            if (e.key === 'ArrowDown') movePiece(0, 1);
-            if (e.key === 'ArrowUp') {
-                currentPiece = rotate(currentPiece);
-                if (collision()) {
-                    currentPiece = rotate(currentPiece);
-                    currentPiece = rotate(currentPiece);
-                    currentPiece = rotate(currentPiece);
+        function getGhostY() {
+            let k = 0;
+            while (!collide(0, k + 1, cur.shape)) k++;
+            return cy + k;
+        }
+
+        let paused = false;
+
+        function draw() {
+            ctx.clearRect(0, 0, W, H);
+            // board
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    const col = board[r][c];
+                    if (col) {
+                        ctx.fillStyle = col;
+                        ctx.fillRect(c * BLOCK, r * BLOCK, BLOCK, BLOCK);
+                        ctx.strokeStyle = '#111';
+                        ctx.strokeRect(c * BLOCK, r * BLOCK, BLOCK, BLOCK);
+                    } else {
+                        // light grid
+                        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+                        ctx.strokeRect(c * BLOCK, r * BLOCK, BLOCK, BLOCK);
+                    }
                 }
             }
-            drawBoard();
+            // ghost piece
+            const gy = getGhostY();
+            ctx.globalAlpha = 0.25;
+            // current piece
+            ctx.fillStyle = cur.color;
+            ctx.strokeStyle = '#111';
+            for (let r = 0; r < cur.shape.length; r++) {
+                for (let c = 0; c < cur.shape[r].length; c++) {
+                    if (!cur.shape[r][c]) continue;
+                    const x = (cx + c) * BLOCK, y = (cy + r) * BLOCK;
+                    ctx.fillRect(x, y, BLOCK, BLOCK);
+                    // ctx.strokeRect(x, y, BLOCK, BLOCK);
+                }
+            }
+            ctx.globalAlpha = 1;
+            if (paused) {
+                ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(0, 0, W, H);
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 28px Arial'; ctx.textAlign = 'center';
+                ctx.fillText('PAUSED', W / 2, H / 2);
+            }
         }
 
-        document.addEventListener('keydown', handleKey);
+        // main loop with simple delta timer
+        let lastTick = 0;
+        function gameLoop(now) {
+            loopId = requestAnimationFrame(gameLoop);
+            if (!now) return;
+            const need = softDrop ? 60 : dropMs;
+            if (now - lastTick >= need) {
+                stepDown();
+                lastTick = now;
+            }
+            draw();
+        }
 
-        newPiece();
-        gameInterval = setInterval(gameLoop, 500);
-document.getElementById('leftBtn').addEventListener('click', function() {
-    movePiece(-1, 0);
-    drawBoard();
-});
+        function stepDown() {
+            if (!move(0, 1)) {
+                merge(); SndTetris.play.lock(); const n = clearLines(); if (n) SndTetris.play.line(n); newPiece();
+            }
+        }
 
-document.getElementById('rightBtn').addEventListener('click', function() {
-    movePiece(1, 0);
-    drawBoard();
-});
+        function move(dx, dy) {
+            if (!collide(dx, dy, cur.shape)) { cx += dx; cy += dy; return true; }
+            return false;
+        }
 
-document.getElementById('downBtn').addEventListener('click', function() {
-    movePiece(0, 1);
-    drawBoard();
-});
+        function tryRotate() {
+            const rotated = rotate(cur.shape);
+            if (!collide(0, 0, rotated)) { cur.shape = rotated; SndTetris.play.rotate(); return true; }
+            // simple wall kicks
+            if (!collide(-1, 0, rotated)) { cx -= 1; cur.shape = rotated; SndTetris.play.rotate(); return true; }
+            if (!collide(1, 0, rotated)) { cx += 1; cur.shape = rotated; SndTetris.play.rotate(); return true; }
+            return false;
+        }
 
-document.getElementById('rotateBtn').addEventListener('click', function() {
-    currentPiece = rotate(currentPiece);
-    if (collision()) {
-        currentPiece = rotate(currentPiece);
-        currentPiece = rotate(currentPiece);
-        currentPiece = rotate(currentPiece);
-    }
-    drawBoard();
-});
+        function hardDrop() {
+            SndTetris.play.hard();
+            while (move(0, 1)) { }
+            merge(); SndTetris.play.lock(); const n = clearLines(); if (n) SndTetris.play.line(n); newPiece();
+        }
+
+        function gameOver() {
+            cancelAnimationFrame(loopId);
+            overTitleEl.textContent = t('over');
+            finalScoreEl.textContent = score;
+            overEl.style.display = 'flex';
+            SndTetris.play.over();
+            if (score > best) {
+                best = score; localStorage.setItem('tetris.best', best); updateBest();
+            }
+            try { PlatformSDK.addPoints(1, 'TETRIS'); PlatformSDK.endGame(); } catch (_) { }
+            return true;
+        }
+
+        // Keyboard
+        document.addEventListener('keydown', e => {
+            if (overEl.style.display === 'flex') return;
+            if (e.key === 'ArrowLeft') { if (move(-1, 0)) SndTetris.play.move(); }
+            if (e.key.toLowerCase() === 'p') { paused = !paused; return; }
+            if (paused || overEl.style.display === 'flex') return;
+            else if (e.key === 'ArrowRight') { if (move(1, 0)) SndTetris.play.move(); }
+            else if (e.key === 'ArrowDown') { softDrop = true; move(0, 1); } // quiet
+            else if (e.key === 'ArrowUp') { tryRotate(); }
+            else if (e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); hardDrop(); }
+        });
+        document.addEventListener('keyup', e => {
+            if (e.key === 'ArrowDown') softDrop = false;
+        });
+
+        // Touch buttons (tap = single move, press-and-hold = repeat/down)
+        function pressHold(el, onPress) {
+            let holdId, repeatId;
+            const wrapped = () => { if (paused || overEl.style.display === 'flex') return; onPress(); };
+            // const start = (ev) => {
+            //     ev.preventDefault();
+            //     onPress();
+            //     holdId = setTimeout(() => { repeatId = setInterval(onPress, 70); }, 220);
+            // };
+            // const end = () => {
+            //    clearTimeout(holdId); clearInterval(repeatId);
+            //};
+            const start = (ev) => { ev.preventDefault(); wrapped(); holdId = setTimeout(() => { repeatId = setInterval(wrapped, 70); }, 220); };
+            const end = () => { clearTimeout(holdId); clearInterval(repeatId); };
+            el.addEventListener('mousedown', start);
+            el.addEventListener('touchstart', start, { passive: false });
+            ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(t => el.addEventListener(t, end));
+        }
+        pressHold(document.getElementById('leftBtn'), () => move(-1, 0));
+        pressHold(document.getElementById('rightBtn'), () => move(1, 0));
+        pressHold(document.getElementById('downBtn'), () => { softDrop = true; move(0, 1); });
+        document.getElementById('downBtn').addEventListener('mouseup', () => softDrop = false);
+        document.getElementById('downBtn').addEventListener('touchend', () => softDrop = false, { passive: true });
+        document.getElementById('rotateBtn').addEventListener('click', () => tryRotate());
+
+        document.getElementById('againBtn').addEventListener('click', reset);
+
+        // Init
+        reset();
+        document.getElementById('soundBtn').onclick = () => SndTetris.toggle();
+        SndTetris.init();
     </script>
 </body>
+
 </html>

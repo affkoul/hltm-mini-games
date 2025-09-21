@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Node (API)
+api/node_modules/
+api/npm-debug.log*
+api/.env
+# api/.env.*
+
+# misc
+tree.txt

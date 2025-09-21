@@ -1,74 +1,254 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-    <title>Advanced Physics Breakout</title>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="./breakout-favicon.ico">
+    <title>Breakout</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="platform/platform.css">
+    <script src="platform/platform.js"></script>
+
+    <!-- Persist language BEFORE paint (same contract as portal) -->
+    <script>
+        (function () {
+            var KEY = 'portal.lang';
+            var m = (location.search.match(/[?&]lang=(en|fr|zh)\b/) || [])[1];
+            var saved = localStorage.getItem(KEY);
+            var lang = m || saved || 'en';
+            document.documentElement.setAttribute('lang', lang);
+            localStorage.setItem(KEY, lang);
+            var titles = {
+                en: 'Breakout (Advanced Physics)',
+                fr: 'Casse-briques (physique avancée)',
+                zh: '高级物理打砖块'
+            };
+            document.title = titles[lang] || titles.en;
+            window.__i18n__ = {
+                score: { en: 'Score', fr: 'Score', zh: '分数' },
+                lives: { en: 'Lives', fr: 'Vies', zh: '生命' },
+                gameover: { en: 'GAME OVER', fr: 'FIN DE PARTIE', zh: '游戏结束' }
+            };
+        })();
+    </script>
+
     <style>
-        body { 
-            display: flex; 
-            justify-content: center; 
-            background-color: #2c3e50; 
-            margin: 0; 
-            overflow: hidden;
+        :root [lang] {
+            display: none;
         }
-        canvas { border: 3px solid #3498db; }
+
+        html[lang="en"] [lang="en"],
+        html[lang="fr"] [lang="fr"],
+        html[lang="zh"] [lang="zh"] {
+            display: inline;
+        }
+
+        body {
+            margin: 0;
+            background: #2c3e50;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            min-height: 100vh;
+            justify-content: center;
+        }
+
+        h1 {
+            margin: 6px 0 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .hint {
+            font-size: 12px;
+            opacity: .9;
+            margin-bottom: 6px;
+            text-align: center;
+        }
+
+        canvas {
+            border: 3px solid #3498db;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .mobile {
+            display: grid;
+            grid-template-columns: repeat(2, 130px);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .mobile button {
+            height: 48px;
+            border: 0;
+            border-radius: 6px;
+            background: #1f2d3a;
+            color: #fff;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: inset -3px -3px 0 #17222c, inset 3px 3px 0 #2a3b4b;
+        }
+
+        .mobile button:active {
+            transform: translateY(1px);
+            background: #18232e;
+        }
     </style>
 </head>
+
 <body>
+    <!-- Title -->
+    <h1 lang="en">Breakout (Advanced Physics)</h1>
+    <h1 lang="fr">Casse-briques (physique avancée)</h1>
+    <h1 lang="zh">高级物理打砖块</h1>
+
+    <!-- Controls hint -->
+    <div class="hint">
+        <span lang="en">Move with ← → keys</span>
+        <span lang="fr">Déplacez-vous avec les touches ← →</span>
+        <span lang="zh">使用 ← → 方向键移动</span>
+    </div>
+
     <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <button id="soundBtn" style="
+      margin:8px 0;padding:8px 12px;border:1px solid #1b2a36;border-radius:6px;
+      background:#1f2d3a;color:#fff;cursor:pointer
+    ">Sound: On</button>
+
+    <!-- Simple mobile controls -->
+    <div class="mobile">
+        <button id="LEFT" lang="en">Left</button><button id="RIGHT" lang="en">Right</button>
+        <button id="LEFT_fr" lang="fr">Gauche</button><button id="RIGHT_fr" lang="fr">Droite</button>
+        <button id="LEFT_zh" lang="zh">左移</button><button id="RIGHT_zh" lang="zh">右移</button>
+    </div>
+
+    <script>
+        // --- SndBreakout: tiny Web-Audio SFX ------------------------------------------------
+        const SndBreakout = (() => {
+            let ctx = null, muted = false, inited = false;
+
+            function ensure() { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+            function unlock() { ensure(); if (ctx && ctx.state === 'suspended') ctx.resume(); }
+
+            // one-oscillator blip with short amp envelope
+            function blip(freq = 440, dur = 0.08, type = 'square', vol = 0.07) {
+                if (muted) return; ensure(); if (!ctx) return;
+                const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain();
+                o.type = type; o.frequency.value = freq;
+                g.gain.setValueAtTime(0, t);
+                g.gain.linearRampToValueAtTime(vol, t + 0.005);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+                o.connect(g); g.connect(ctx.destination);
+                o.start(t); o.stop(t + dur);
+            }
+
+            function chirp(f1, f2, dur = 0.18, type = 'triangle', vol = 0.07) {
+                if (muted) return; ensure(); if (!ctx) return;
+                const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain();
+                o.type = type; o.frequency.setValueAtTime(f1, t);
+                o.frequency.linearRampToValueAtTime(f2, t + dur);
+                g.gain.setValueAtTime(vol, t);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+                o.connect(g); g.connect(ctx.destination);
+                o.start(t); o.stop(t + dur);
+            }
+
+            function updateBtn() {
+                const B = document.getElementById('soundBtn'); if (!B) return;
+                const labels = {
+                    en: ['Sound: On', 'Sound: Off'],
+                    fr: ['Son : Activé', 'Son : Coupé'],
+                    zh: ['声音：开', '声音：关']
+                };
+                const lang = document.documentElement.getAttribute('lang') || 'en';
+                const L = labels[lang] || labels.en;
+                B.textContent = muted ? L[1] : L[0];
+                B.setAttribute('aria-pressed', muted ? 'true' : 'false');
+            }
+
+            const play = {
+                wallX() { blip(260, 0.07, 'triangle', 0.065); },     // side walls
+                wallY() { blip(320, 0.06, 'triangle', 0.06); },      // ceiling
+                paddle(hitRatio = 0) {                                  // hitRatio ∈ [-1,1]
+                    const f = 360 + Math.abs(hitRatio) * 180;
+                    blip(f, 0.07, 'square', 0.08);
+                },
+                brick(row = 0) {
+                    // higher rows → slightly higher pitch
+                    const f = 420 + row * 18;
+                    blip(f, 0.06, 'square', 0.07);
+                },
+                life() { chirp(400, 200, 0.22, 'triangle', 0.08); }, // lost life
+                serve() { chirp(300, 450, 0.18, 'square', 0.06); },  // ball reset
+                gameover() { chirp(500, 160, 0.35, 'sawtooth', 0.1); }
+            };
+
+            function toggle() { muted = !muted; updateBtn(); }
+            function init() {
+                if (inited) return; inited = true; updateBtn();
+                ['keydown', 'mousedown', 'touchstart'].forEach(ev =>
+                    window.addEventListener(ev, unlock, { once: true, passive: true })
+                );
+            }
+
+            return { play, toggle, init };
+        })();
+    </script>
+
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // Enhanced Game State
-        const game = {
-            score: 0,
-            lives: 3,
-            level: 1,
-            keys: {}  // Track multiple key presses
+        // i18n helpers
+        const T = window.__i18n__ || {
+            score: { en: 'Score', fr: 'Score', zh: '分数' },
+            lives: { en: 'Lives', fr: 'Vies', zh: '生命' },
+            gameover: { en: 'GAME OVER', fr: 'FIN DE PARTIE', zh: '游戏结束' }
         };
+        const LANG = document.documentElement.getAttribute('lang') || 'en';
 
-        // Advanced Paddle Physics
+        // Game state
+        const game = { score: 0, lives: 3, level: 1, keys: {} };
+
+        let platformSessionStarted = false;
+        function platformEnsureStart() {
+            if (!platformSessionStarted && window.PlatformSDK) {
+                PlatformSDK.endGame();                 // safe no-op if none
+                PlatformSDK.startGame('BREAKOUT'); // unique id
+                platformSessionStarted = true;
+            }
+        }
+
+        // Paddle
         const paddle = {
-            width: 120,
-            height: 15,
-            x: canvas.width / 2 - 60,
-            y: canvas.height - 30,
+            width: 120, height: 15,
+            x: canvas.width / 2 - 60, y: canvas.height - 30,
             color: '#3498db',
-            velocity: 0,
-            maxVelocity: 10,
-            friction: 0.8,
-            acceleration: 1.2
+            velocity: 0, maxVelocity: 10, friction: 0.8, acceleration: 1.2
         };
 
-        // Improved Ball Physics
+        // Ball
         const ball = {
-            x: canvas.width / 2,
-            y: canvas.height / 2,
-            radius: 10,
-            dx: 5,
-            dy: -5,
-            speed: 5,
-            color: '#e74c3c'
+            x: canvas.width / 2, y: canvas.height / 2, radius: 10,
+            dx: 5, dy: -5, speed: 5, color: '#e74c3c'
         };
 
-        // Brick Configuration
+        // Bricks
         const brickConfig = {
-            rows: 6,
-            cols: 12,
-            width: 60,
-            height: 20,
-            padding: 8,
-            offsetTop: 50,
-            offsetLeft: 25,
+            rows: 6, cols: 12, width: 60, height: 20, padding: 8,
+            offsetTop: 50, offsetLeft: 25,
             colors: ['#2ecc71', '#3498db', '#e74c3c', '#f39c12', '#9b59b6', '#1abc9c']
         };
 
-        // Advanced Brick Generation
         const bricks = [];
         for (let c = 0; c < brickConfig.cols; c++) {
             bricks[c] = [];
             for (let r = 0; r < brickConfig.rows; r++) {
-                bricks[c][r] = { 
+                bricks[c][r] = {
                     x: c * (brickConfig.width + brickConfig.padding) + brickConfig.offsetLeft,
                     y: r * (brickConfig.height + brickConfig.padding) + brickConfig.offsetTop,
                     status: 1,
@@ -77,156 +257,154 @@
             }
         }
 
-        // Keyboard Input Handling
-        document.addEventListener('keydown', (e) => {
-            game.keys[e.key] = true;
-        });
+        // Input
+        document.addEventListener('keydown', e => { game.keys[e.key] = true; });
+        document.addEventListener('keyup', e => { game.keys[e.key] = false; });
 
-        document.addEventListener('keyup', (e) => {
-            game.keys[e.key] = false;
-        });
+        // Mobile buttons: hold to apply key
+        function bindHold(btn, key) {
+            const down = () => { game.keys[key] = true; };
+            const up = () => { game.keys[key] = false; };
+            btn.addEventListener('mousedown', down);
+            btn.addEventListener('touchstart', e => { e.preventDefault(); down(); }, { passive: false });
+            ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(ev => btn.addEventListener(ev, up));
+        }
+        [
+            ['LEFT', 'ArrowLeft'], ['RIGHT', 'ArrowRight'],
+            ['LEFT_fr', 'ArrowLeft'], ['RIGHT_fr', 'ArrowRight'],
+            ['LEFT_zh', 'ArrowLeft'], ['RIGHT_zh', 'ArrowRight']
+        ].forEach(([id, key]) => { const el = document.getElementById(id); if (el) bindHold(el, key); });
 
-        // Advanced Paddle Movement
+        // Paddle movement
         function updatePaddleMovement() {
-            // Left movement
-            if (game.keys['ArrowLeft']) {
-                paddle.velocity -= paddle.acceleration;
-            }
-            
-            // Right movement
-            if (game.keys['ArrowRight']) {
-                paddle.velocity += paddle.acceleration;
-            }
+            if (game.keys['ArrowLeft']) paddle.velocity -= paddle.acceleration;
+            if (game.keys['ArrowRight']) paddle.velocity += paddle.acceleration;
 
-            // Apply friction and velocity limits
             paddle.velocity *= paddle.friction;
             paddle.velocity = Math.max(-paddle.maxVelocity, Math.min(paddle.maxVelocity, paddle.velocity));
 
-            // Update paddle position
             paddle.x += paddle.velocity;
-
-            // Boundary checking
             paddle.x = Math.max(0, Math.min(canvas.width - paddle.width, paddle.x));
         }
 
-        // Enhanced Collision Physics
+        function allBricksCleared() {
+            for (let c = 0; c < brickConfig.cols; c++) {
+                for (let r = 0; r < brickConfig.rows; r++) {
+                    if (bricks[c][r].status === 1) return false;
+                }
+            }
+            return true;
+        }
+
+        // Collision & physics
         function advancedCollision() {
-            // Wall collisions with angle preservation
+            // Walls (x)
             if (ball.x + ball.dx > canvas.width - ball.radius || ball.x + ball.dx < ball.radius) {
-                ball.dx = -ball.dx * 1.01;  // Slight speed increase
+                ball.dx = -ball.dx * 1.01;
+                SndBreakout.play.wallX();
             }
+            // Ceiling
+            if (ball.y + ball.dy < ball.radius) { ball.dy = -ball.dy; SndBreakout.play.wallY(); }
 
-            // Ceiling collision
-            if (ball.y + ball.dy < ball.radius) {
-                ball.dy = -ball.dy;
-            }
-
-            // Paddle Collision with Angle Reflection
-            if (ball.y + ball.dy > paddle.y - ball.radius && 
-                ball.x > paddle.x && 
-                ball.x < paddle.x + paddle.width) {
-                
-                // Calculate collision point on paddle
-                let collidePoint = (ball.x - (paddle.x + paddle.width/2)) / (paddle.width/2);
-                
-                // Angle calculation (increased dynamic range)
-                let angle = collidePoint * Math.PI/3;  // Max 60-degree angle
-                
-                // Incorporate paddle velocity into ball trajectory
-                ball.dx = ball.speed * Math.sin(angle);
+            // Paddle
+            if (ball.y + ball.dy > paddle.y - ball.radius &&
+                ball.x > paddle.x && ball.x < paddle.x + paddle.width) {
+                let collidePoint = (ball.x - (paddle.x + paddle.width / 2)) / (paddle.width / 2);
+                let angle = collidePoint * Math.PI / 3; // ±60°
+                ball.dx = ball.speed * Math.sin(angle) + paddle.velocity * 0.2;
                 ball.dy = -Math.abs(ball.speed * Math.cos(angle));
-
-                // Optional: Add slight randomness
-                ball.dx += paddle.velocity * 0.2;
+                SndBreakout.play.paddle(collidePoint);
             }
 
-            // Bottom wall (lose life)
+            // Bottom (lose a life)
             if (ball.y + ball.dy > canvas.height - ball.radius) {
                 game.lives--;
+                SndBreakout.play.life();
                 if (game.lives === 0) {
-                    alert('GAME OVER');
-                    document.location.reload();
+                    SndBreakout.play.gameover();
+                    if (window.PlatformSDK) PlatformSDK.endGame();
+                    setTimeout(() => { alert(T.gameover[LANG] || T.gameover.en); location.reload(); }, 10);
                 } else {
-                    ball.x = canvas.width / 2;
-                    ball.y = canvas.height / 2;
+                    ball.x = canvas.width / 2; ball.y = canvas.height / 2; ball.dx = 5; ball.dy = -5;
+                    paddle.x = canvas.width / 2 - paddle.width / 2; paddle.velocity = 0;
+                    SndBreakout.play.serve();
                 }
             }
 
-            // Brick Collisions with Color Variation
+            // Bricks
             for (let c = 0; c < brickConfig.cols; c++) {
                 for (let r = 0; r < brickConfig.rows; r++) {
                     const brick = bricks[c][r];
                     if (brick.status === 1) {
-                        if (ball.x > brick.x && 
-                            ball.x < brick.x + brickConfig.width && 
-                            ball.y > brick.y && 
-                            ball.y < brick.y + brickConfig.height) {
-                            ball.dy = -ball.dy * 1.05;  // Slight speed increase
+                        if (ball.x > brick.x && ball.x < brick.x + brickConfig.width &&
+                            ball.y > brick.y && ball.y < brick.y + brickConfig.height) {
+                            ball.dy = -ball.dy * 1.05;
                             brick.status = 0;
                             game.score += 15;
+                            SndBreakout.play.brick(r);
+                            if (window.PlatformSDK) PlatformSDK.addPoints(1, 'Breakout: brick');
                         }
                     }
                 }
             }
+            if (allBricksCleared()) {
+                if (window.PlatformSDK) PlatformSDK.addPoints(1, 'Breakout: board cleared');
+                // (Optional) you could reset bricks/spawn next level here.
+            }
         }
 
-        // Drawing Functions (Similar to previous implementation)
+        // Draw
         function drawPaddle() {
             ctx.beginPath();
             ctx.rect(paddle.x, paddle.y, paddle.width, paddle.height);
-            ctx.fillStyle = paddle.color;
-            ctx.fill();
-            ctx.closePath();
+            ctx.fillStyle = paddle.color; ctx.fill(); ctx.closePath();
         }
-
         function drawBall() {
             ctx.beginPath();
             ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-            ctx.fillStyle = ball.color;
-            ctx.fill();
-            ctx.closePath();
+            ctx.fillStyle = ball.color; ctx.fill(); ctx.closePath();
         }
-
         function drawBricks() {
             for (let c = 0; c < brickConfig.cols; c++) {
                 for (let r = 0; r < brickConfig.rows; r++) {
                     if (bricks[c][r].status === 1) {
                         ctx.beginPath();
                         ctx.rect(bricks[c][r].x, bricks[c][r].y, brickConfig.width, brickConfig.height);
-                        ctx.fillStyle = bricks[c][r].color;
-                        ctx.fill();
-                        ctx.closePath();
+                        ctx.fillStyle = bricks[c][r].color; ctx.fill(); ctx.closePath();
                     }
                 }
             }
         }
 
-        // Enhanced Game Loop
-        function gameLoop() {
+        // Loop
+        function loop() {
+            platformEnsureStart();
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            drawBricks();
-            drawPaddle();
-            drawBall();
-            
+
+            drawBricks(); drawPaddle(); drawBall();
             updatePaddleMovement();
             advancedCollision();
-            
-            ball.x += ball.dx;
-            ball.y += ball.dy;
-            
-            // Display score and lives
-            ctx.font = '18px Arial';
-            ctx.fillStyle = 'white';
-            ctx.fillText(`Score: ${game.score}`, 10, 25);
-            ctx.fillText(`Lives: ${game.lives}`, canvas.width - 80, 25);
-            
-            requestAnimationFrame(gameLoop);
-        }
 
-        // Start the game
-        gameLoop();
+            ball.x += ball.dx; ball.y += ball.dy;
+
+            // HUD
+            ctx.font = '18px Arial'; ctx.fillStyle = 'white';
+            ctx.fillText((T.score[LANG] || T.score.en) + ': ' + game.score, 10, 25);
+            ctx.fillText((T.lives[LANG] || T.lives.en) + ': ' + game.lives, canvas.width - 110, 25);
+
+            requestAnimationFrame(loop);
+        }
+        loop();
+    </script>
+    <script>
+        document.getElementById('soundBtn').onclick = () => SndBreakout.toggle();
+        SndBreakout.init();
+    </script>
+    <script>
+        window.addEventListener('beforeunload', () => {
+            if (window.PlatformSDK) PlatformSDK.endGame();
+        });
     </script>
 </body>
-</html>
 
+</html>
