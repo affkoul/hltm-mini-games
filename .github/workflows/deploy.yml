@@ -37,4 +37,4 @@ jobs:
           script: |
             export GITHUB_SHA="${GITHUB_SHA}"
             ls -lh /tmp/gamesdom.tar.gz
-            sudo /opt/gamesdom/deploy/deploy.sh
+            sudo --preserve-env=GITHUB_SHA /opt/gamesdom/deploy/deploy.sh
