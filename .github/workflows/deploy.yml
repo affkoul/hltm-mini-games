@@ -12,14 +12,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Create tarball (skip dotgit and node_modules)
+      - name: Create tarball (stable via git archive)
         run: |
-          tar -czf gamesdom.tar.gz \
-            --exclude='.git' \
-            --exclude='.github' \
-            --exclude='api/node_modules' \
-            --exclude='gamesdom.tar.gz' \
-            .
+          git archive --format=tar.gz -o gamesdom.tar.gz HEAD
 
       - name: Upload tarball to EC2
         uses: appleboy/scp-action@v0.1.7
@@ -41,5 +36,5 @@ jobs:
           envs: GITHUB_SHA
           script: |
             export GITHUB_SHA="${GITHUB_SHA}"
-            sudo mv /tmp/gamesdom.tar.gz /tmp/gamesdom.tar.gz
+            ls -lh /tmp/gamesdom.tar.gz
             sudo /opt/gamesdom/deploy/deploy.sh
