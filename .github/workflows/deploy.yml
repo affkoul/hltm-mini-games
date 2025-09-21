@@ -16,7 +16,9 @@ jobs:
         run: |
           tar -czf gamesdom.tar.gz \
             --exclude='.git' \
+            --exclude='.github' \
             --exclude='api/node_modules' \
+            --exclude='gamesdom.tar.gz' \
             .
 
       - name: Upload tarball to EC2
